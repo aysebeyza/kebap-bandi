@@ -29,6 +29,14 @@ Kesinleşen kurallar [PLAN.md](../PLAN.md) içindedir. Bu dosya ayrıntıları v
 - Yemeklerin açılma sırası: lahmacun, Adana, döner, ayran, pide, köfte, çorba, iskender, künefe, baklava.
 - Denge raporu: `godot --headless --path . -s tools/denge_raporu.gd`. Otomatik oyuncunun ulaştığı en yüksek doluluğu ve süreyi yazdırır.
 
+## Ekran (ilk sürüm)
+
+- Tüm görseller şimdilik kodla çiziliyor (`scripts/ui/cizim.gd`): 10 yemek, müşteriler, usta, döner ocağı, mangal.
+- Müşteriler bandın üst ve alt kenarında, köşelere yakın oturur. Sipariş balonu dış yanda durur.
+- Sütunda en üstteki yemeğin arkasında açık renkli bir daire, dokunulabilir olduğunu gösterir.
+- *Onay bekleyen varsayılan:* Bölüm kazanılınca "Afiyet olsun!" çıkar ve sonraki bölüme geçilir. Kaybedilince "Bant doldu!" çıkar ve bölüm tekrar oynanır. Kayıt yalnızca ulaşılan bölümü tutar.
+- *Onay bekleyen varsayılan:* 30. bölümden sonra son bölümün ayarları yeni tohumlarla sonsuza kadar sürer.
+
 ## Henüz karar verilmeyenler (sonraki aşamalar)
 
 - Yıldızlar ve bahşiş (*varsayılan önerisi:* en yüksek doluluğa göre 1–3 yıldız)

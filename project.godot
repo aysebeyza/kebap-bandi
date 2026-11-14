@@ -4,7 +4,13 @@ config_version=5
 [application]
 
 config/name="Kebap Bandı"
+run/main_scene="res://scenes/ana.tscn"
+config/icon="res://icon.png"
 config/features=PackedStringArray("4.7", "Mobile")
+
+[autoload]
+
+Oyun="*res://scripts/oyun.gd"
 
 [display]
 

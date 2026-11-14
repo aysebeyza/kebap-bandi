@@ -18,6 +18,10 @@ Mobil (önce Android) bant sıralama bulmacası; Türk yemekleri teması. Dikey 
 - Git Bash'te: `G=/d/Araclar/Godot/Godot_v4.7.2-stable_win64_console.exe`
 - Testler: `$G --headless --path . -s tests/calistir.gd` (çıkış kodu 0 = başarılı).
 - İçe aktarım: `$G --headless --path . --import`
+- Duman testi (pencereli, kayda dokunmaz): `$G --path . -- --kayitsiz --bolum=28 --oto --hiz=12 --duman=3` → çıktıda `DUMAN TAMAM` olmalı, `SCRIPT ERROR` olmamalı.
+- Ekran görüntüsü: `$G --path . --resolution 540x1170 -- --kayitsiz --bolum=8 --oto --ekran=<dosya.png> --bekle=7`. Diğer argümanlar `scripts/ana.gd` başında.
+- Denge raporu: `$G --headless --path . -s tools/denge_raporu.gd`. Uygulama simgesi: `$G --path . -s tools/simge_uret.gd`.
+- Telefona kur: `tools\telefona_kur.cmd` (APK üretir, kurar, açar).
 - Betikler `class_name` yerine `preload` kullanır.
 - Blender 5.3: `C:\Program Files\Blender Foundation\Blender 5.3\blender.exe` — modeller ve yemek simgeleri `tools/blender/` betikleriyle üretilir.
 - Android: `$G --headless --path . --export-debug "Android" build/kebap-bandi.apk` (JDK 17: `D:\Araclar\jdk-17.0.21+9`, SDK: `%LOCALAPPDATA%\Android\Sdk`). Deneme telefonu Redmi Note 9; `adb install --no-incremental -r`.
