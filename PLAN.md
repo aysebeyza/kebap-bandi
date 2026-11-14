@@ -18,7 +18,7 @@ Oynanış mantığı türdeki örnek oyunla aynıdır. Tema, yemekler, karakterl
 
 ### Kurallar
 - Her sütun bir yığındır; yalnızca en üstteki yemek alınabilir.
-- Sütuna dokununca en üstteki **aynı türden ardışık yemeklerin hepsi** banda gönderilir (bantta yer kaldığı kadar).
+- Sütuna dokununca yalnızca **en üstteki tek yemek** banda gönderilir.
 - Bant sabit hızla döner. Yemek, istediği türde siparişi olan bir müşterinin önünden geçerken müşteri onu alır ve kalan adedi bir düşer.
 - Adedi sıfıra inen müşteri kalkar; sıradaki müşteri oturur ve yeni sipariş verir.
 - Bölümdeki her yemek türünün toplam sayısı, o türün toplam sipariş sayısına eşittir.
