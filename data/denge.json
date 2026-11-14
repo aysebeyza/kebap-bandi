@@ -1,0 +1,11 @@
+{
+  "sutun_sayisi": 5,
+  "bant": {
+    "slot_sayisi": 48,
+    "kapasite": 40,
+    "giris_slotu": 0,
+    "koltuk_slotlari": [5, 19, 29, 43],
+    "musteri_gelis_adim": 6,
+    "adim_suresi": 0.25
+  }
+}

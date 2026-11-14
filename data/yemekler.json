@@ -1,0 +1,12 @@
+[
+  {"id": "lahmacun", "ad": "Lahmacun"},
+  {"id": "adana", "ad": "Adana Kebap"},
+  {"id": "doner", "ad": "Döner Dürüm"},
+  {"id": "ayran", "ad": "Ayran"},
+  {"id": "pide", "ad": "Pide"},
+  {"id": "kofte", "ad": "Köfte"},
+  {"id": "corba", "ad": "Mercimek Çorbası"},
+  {"id": "iskender", "ad": "İskender"},
+  {"id": "kunefe", "ad": "Künefe"},
+  {"id": "baklava", "ad": "Baklava"}
+]
