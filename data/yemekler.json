@@ -1,12 +1,12 @@
 [
-  {"id": "lahmacun", "ad": "Lahmacun"},
-  {"id": "adana", "ad": "Adana Kebap"},
-  {"id": "doner", "ad": "Döner Dürüm"},
-  {"id": "ayran", "ad": "Ayran"},
-  {"id": "pide", "ad": "Pide"},
-  {"id": "kofte", "ad": "Köfte"},
-  {"id": "corba", "ad": "Mercimek Çorbası"},
-  {"id": "iskender", "ad": "İskender"},
-  {"id": "kunefe", "ad": "Künefe"},
-  {"id": "baklava", "ad": "Baklava"}
+  {"id": "lahmacun", "ad": "Lahmacun", "tarif": ["hamur", "kiyma", "domates"]},
+  {"id": "adana", "ad": "Adana Kebap", "tarif": ["kiyma", "biber", "lavas"]},
+  {"id": "doner", "ad": "Döner Dürüm", "tarif": ["et", "lavas", "domates"]},
+  {"id": "ayran", "ad": "Ayran", "tarif": ["yogurt", "su"]},
+  {"id": "pide", "ad": "Pide", "tarif": ["hamur", "peynir"]},
+  {"id": "kofte", "ad": "Köfte", "tarif": ["kiyma", "sogan"]},
+  {"id": "corba", "ad": "Mercimek Çorbası", "tarif": ["mercimek", "limon"]},
+  {"id": "iskender", "ad": "İskender", "tarif": ["et", "yogurt", "domates"]},
+  {"id": "kunefe", "ad": "Künefe", "tarif": ["kadayif", "peynir"]},
+  {"id": "baklava", "ad": "Baklava", "tarif": ["hamur", "fistik"]}
 ]

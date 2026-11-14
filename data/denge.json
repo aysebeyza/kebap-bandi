@@ -1,8 +1,9 @@
 {
   "sutun_sayisi": 5,
+  "tezgah_kapasite": 7,
+  "pisme_adim": 6,
   "bant": {
     "slot_sayisi": 48,
-    "kapasite": 40,
     "giris_slotu": 0,
     "koltuk_slotlari": [5, 19, 29, 43],
     "musteri_gelis_adim": 6,

@@ -1,7 +1,7 @@
 extends RefCounted
 ## data/ altındaki JSON dosyalarını tek sözlükte toplar.
 
-const DOSYALAR := ["yemekler", "denge", "bolumler"]
+const DOSYALAR := ["yemekler", "malzemeler", "denge", "bolumler"]
 
 
 static func yukle() -> Dictionary:
@@ -10,3 +10,14 @@ static func yukle() -> Dictionary:
 		var f := FileAccess.open("res://data/%s.json" % ad, FileAccess.READ)
 		v[ad] = JSON.parse_string(f.get_as_text())
 	return v
+
+
+## {yemek: [malzeme, ...]}
+static func tarifler(v: Dictionary) -> Dictionary:
+	var t := {}
+	for y: Dictionary in v.yemekler:
+		var liste := []
+		for m in y.tarif:
+			liste.append(str(m))
+		t[str(y.id)] = liste
+	return t

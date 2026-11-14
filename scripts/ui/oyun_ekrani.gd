@@ -19,6 +19,7 @@ const KAHVE := Color("5a3a22")
 
 var veri: Dictionary
 var ayar: Dictionary
+var _tarifler: Dictionary
 var bolum = null
 var bolum_no := 1
 ## Otomatik oyuncu dokunsun (duman testi).
@@ -39,7 +40,8 @@ var _ust := 0.0
 var _tezgah := Rect2()
 var _serit := Rect2()
 var _mutfak := Rect2()
-var _cubuk := Rect2()
+var _tepsi := Rect2()
+var _mangal := Rect2()
 var _sutun_alani := Rect2()
 var _koltuk_bas: Array = []
 
@@ -70,7 +72,8 @@ func baslat(no: int) -> void:
 	var sev := Uretici.uret(p, veri)
 	if sev.is_empty():
 		sev = Uretici.taslak(p, int(p.tohum), veri)
-	bolum = Bolum.new(sev, ayar)
+	_tarifler = Veri.tarifler(veri)
+	bolum = Bolum.new(sev, veri.denge, _tarifler)
 	_birikim = 0.0
 	_sonuc_sure = 0.0
 	_ucanlar.clear()
@@ -100,8 +103,10 @@ func _yerlesim() -> void:
 	_tezgah = Rect2(60, y0 + 200, w - 120, 540)
 	_serit = _tezgah.grow(-50)
 	_mutfak = _tezgah.grow(-100)
-	_cubuk = Rect2(90, _tezgah.end.y + 250, w - 180, 54)
-	_sutun_alani = Rect2(24, _cubuk.end.y + 36, w - 48, h - _cubuk.end.y - 56)
+	var mc := _mutfak.get_center()
+	_mangal = Rect2(mc.x - 200, mc.y + 70, 400, 100)
+	_tepsi = Rect2(50, _tezgah.end.y + 255, w - 100, 140)
+	_sutun_alani = Rect2(24, _tepsi.end.y + 30, w - 48, h - _tepsi.end.y - 50)
 	_koltuk_bas.clear()
 	for slot in ayar.koltuk_slotlari:
 		var p := _slot_konum(float(slot))
@@ -148,6 +153,16 @@ func _sutun_genislik() -> float:
 	return _sutun_alani.size.x / bolum.d.sutunlar.size()
 
 
+func _tepsi_yuva(i: int) -> Vector2:
+	var n: int = bolum.d.kapasite
+	var g := (_tepsi.size.x - 40.0) / n
+	return Vector2(_tepsi.position.x + 20.0 + (i + 0.5) * g, _tepsi.get_center().y)
+
+
+func _mangal_yeri(k: int) -> Vector2:
+	return Vector2(_mangal.position.x + 60.0 + k * 93.0, _mangal.position.y + 34.0)
+
+
 func _sutun_ust_konum(s: int) -> Vector2:
 	return Vector2(_sutun_alani.position.x + (s + 0.5) * _sutun_genislik(), _sutun_alani.position.y + 20.0 + HUCRE * 0.5)
 
@@ -192,11 +207,21 @@ func _dokun(s: int) -> void:
 	var sutun: Array = bolum.d.sutunlar[s]
 	if sutun.is_empty():
 		return
-	var yemek: String = sutun.back()
-	var bas := _sutun_ust_konum(s)
-	if bolum.dokun(s):
-		_ucanlar.append({"yemek": yemek, "a": bas, "b": _slot_konum(float(ayar.giris_slotu)), "t": 0.0, "sure": 0.2, "tur": "giris"})
-		_vurus[s] = 1.0
+	var malzeme: String = sutun.back()
+	var yuva: int = bolum.d.tezgah.size()
+	if not bolum.dokun(s):
+		return
+	_vurus[s] = 1.0
+	_ucan("malzeme", malzeme, _sutun_ust_konum(s), _tepsi_yuva(yuva), 0.18, 0.0, "tepsi", yuva)
+	for o: Dictionary in bolum.son_olaylar:
+		var k: int = bolum.d.pisenler.size() - 1
+		for y: int in o.yuvalar:
+			var m: String = _tarifler[o.yemek][(o.yuvalar as Array).find(y)]
+			_ucan("malzeme", m, _tepsi_yuva(y), _mangal_yeri(mini(k, 3)), 0.25, 0.18 if y == yuva else 0.0, "mangal", -1)
+
+
+func _ucan(cesit: String, id: String, a: Vector2, b: Vector2, sure: float, gecikme: float, tur: String, yuva: int) -> void:
+	_ucanlar.append({"cesit": cesit, "id": id, "a": a, "b": b, "t": -gecikme / sure, "sure": sure, "tur": tur, "yuva": yuva})
 
 
 func _olaylar(liste: Array) -> void:
@@ -204,7 +229,7 @@ func _olaylar(liste: Array) -> void:
 		match o.tur:
 			"alindi":
 				var i := int(o.koltuk)
-				_ucanlar.append({"yemek": o.yemek, "a": _slot_konum(float(o.slot)), "b": _koltuk_bas[i] + Vector2(0, BAS * 0.6), "t": 0.0, "sure": 0.25, "tur": "servis"})
+				_ucan("yemek", o.yemek, _slot_konum(float(o.slot)), _koltuk_bas[i] + Vector2(0, BAS * 0.6), 0.25, 0.0, "servis", -1)
 			"oturdu":
 				var i := int(o.koltuk)
 				_kim[i] = _kim_sayac
@@ -284,7 +309,7 @@ func _etiket(boy: int) -> Label:
 
 func _paneli_ac() -> void:
 	var kazandi: bool = bolum.d.sonuc == "kazandi"
-	_panel_baslik.text = "Afiyet olsun!" if kazandi else "Bant doldu!"
+	_panel_baslik.text = "Afiyet olsun!" if kazandi else "Tezgâh doldu!"
 	_panel_alt.text = ("Bölüm %d tamamlandı" if kazandi else "Bölüm %d — tekrar dene") % bolum_no
 	_panel_dugme.text = "Sonraki bölüm" if kazandi else "Tekrar"
 	_sonuc_sure = 0.0
@@ -314,12 +339,17 @@ func _draw() -> void:
 	for i in _koltuk_bas.size():
 		_balon(i)
 	_ust_bilgi()
-	_doluluk()
+	_tepsi_ciz()
 	_sutunlar()
 	for u: Dictionary in _ucanlar:
+		if u.t < 0.0:
+			continue
 		var e := ease(u.t, -2.0)
 		var p: Vector2 = (u.a as Vector2).lerp(u.b, e) + Vector2(0, -sin(u.t * PI) * 70.0)
-		Cizim.ciz(self, u.yemek, p, 40.0)
+		if u.cesit == "malzeme":
+			Cizim.malzeme(self, u.id, p, 40.0 if u.tur == "tepsi" else 30.0)
+		else:
+			Cizim.ciz(self, u.id, p, 40.0)
 
 
 func _kutu(r: Rect2, renk: Color, yaricap: float, kenar: int = 0, kenar_renk: Color = Cizim.KONTUR) -> void:
@@ -386,13 +416,9 @@ func _bant(t: float) -> void:
 			var p := _slot_konum(i - 1 + t)
 			Cizim.sekil(self, Cizim.elips(p + Vector2(0, 5), 31, 27), Color("fdfbf6"), 2.5)
 			Cizim.ciz(self, y, p, 27.0)
-	var ucan_giris := 0
-	for u: Dictionary in _ucanlar:
-		if u.tur == "giris":
-			ucan_giris += 1
 	var kuyruk: Array = bolum.d.kuyruk
 	var giris := _slot_konum(float(ayar.giris_slotu))
-	for j in maxi(0, kuyruk.size() - ucan_giris):
+	for j in kuyruk.size():
 		Cizim.ciz(self, kuyruk[j], giris + Vector2(-90 - j * 22, -70), 30.0)
 
 
@@ -411,16 +437,24 @@ func _usta() -> void:
 		Cizim.ciz(self, "ayran", a + Vector2(-36 + k * 36, -38), 20.0)
 	# usta
 	Cizim.kisi(self, m + Vector2(0, -60), 58, Color("f0c49a"), Color("2b1a10"), Color("fdfbf6"), false, true)
-	# mangal
-	var g := Rect2(m.x - 200, m.y + 70, 400, 100)
+	# mangal: pişen yemekler ve ilerleme halkası
+	var g := _mangal
 	_kutu(g, Color("4a4d52"), 16, 5)
-	draw_rect(Rect2(g.position + Vector2(18, 16), Vector2(g.size.x - 36, 30)), Color("f07a2a"))
+	draw_rect(Rect2(g.position + Vector2(18, 16), Vector2(g.size.x - 36, 36)), Color("f07a2a"))
 	for k in 6:
-		draw_circle(g.position + Vector2(40 + k * 64, 31), 10, Color("ffc04a"))
-	for k in 4:
-		var x := g.position.x + 70 + k * 85
-		draw_line(Vector2(x - 30, g.position.y + 6), Vector2(x + 30, g.position.y + 60), Color("9aa3ab"), 5, true)
-		Cizim.cubuk(self, Vector2(x - 18, g.position.y + 18), Vector2(x + 18, g.position.y + 48), 18, Color("a5552c"), 3)
+		draw_circle(g.position + Vector2(40 + k * 64, 34), 10, Color("ffc04a"))
+	for k in 5:
+		draw_line(Vector2(g.position.x + 18, g.position.y + 20 + k * 8), Vector2(g.end.x - 18, g.position.y + 20 + k * 8), Color(0.3, 0.3, 0.32, 0.6), 2)
+	var pisenler: Array = bolum.d.pisenler
+	for k in mini(4, pisenler.size()):
+		var p: Dictionary = pisenler[k]
+		var yer := _mangal_yeri(k)
+		var oran := 1.0 - float(p.kalan) / float(bolum.pisme_adim)
+		draw_circle(yer, 40, Color(0.15, 0.1, 0.08, 0.6))
+		draw_arc(yer, 40, -PI * 0.5, -PI * 0.5 + TAU * oran, 24, Color("ffd54a"), 7, true)
+		Cizim.ciz(self, p.yemek, yer, 30.0)
+	if pisenler.size() > 4:
+		_yazi(Vector2(g.end.x - 20, g.position.y - 18), "+%d" % (pisenler.size() - 4), 34, Color.WHITE, 6)
 
 
 func _musteri(i: int) -> void:
@@ -450,6 +484,13 @@ func _balon(i: int) -> void:
 	Cizim.daire(self, c, 60, Color.WHITE, 4.0)
 	Cizim.ciz(self, kol.yemek, c + Vector2(-6, -6), 38.0)
 	_yazi(c + Vector2(30, 38), str(kol.kalan), 48, KAHVE, 10, Color.WHITE)
+	# tarif ipucu
+	var tarif: Array = _tarifler[kol.yemek]
+	var genis := tarif.size() * 40.0 + 12.0
+	var tr := Rect2(c.x - genis * 0.5, c.y + 64, genis, 46)
+	_kutu(tr, Color(1, 1, 1, 0.92), 23, 3, Color("c89a5a"))
+	for j in tarif.size():
+		Cizim.malzeme(self, tarif[j], Vector2(tr.position.x + 26 + j * 40, tr.get_center().y), 17.0)
 
 
 func _ust_bilgi() -> void:
@@ -465,16 +506,30 @@ func _ust_bilgi() -> void:
 	_yazi(Vector2(110, _ust + 34), "Bölüm %d" % bolum_no, 36, KAHVE)
 
 
-func _doluluk() -> void:
-	var dolu: int = bolum.dolu_sayisi()
+## Hazırlık tezgâhı: kapasite kadar yuva; son yuvaya bir şey kalınca kırmızı uyarır.
+func _tepsi_ciz() -> void:
+	var tezgah: Array = bolum.d.tezgah
 	var kap: int = bolum.d.kapasite
-	var oran := clampf(float(dolu) / kap, 0.0, 1.0)
-	_kutu(_cubuk.grow(6), Color("6b4426"), 33, 4)
-	var renk := Color("3fae49") if oran < 0.6 else (Color("f0a030") if oran < 0.85 else Color("e04a3a"))
-	if dolu > 0:
-		var ic := Rect2(_cubuk.position, Vector2(maxf(_cubuk.size.y, _cubuk.size.x * oran), _cubuk.size.y))
-		_kutu(ic, renk, 27)
-	_yazi(_cubuk.get_center(), "%d / %d" % [dolu, kap], 42, Color.WHITE, 8, Color(0.25, 0.15, 0.08))
+	var tehlike := tezgah.size() >= kap - 2
+	_kutu(_tepsi, Color("8f5729"), 30, 6, Color("5e3517"))
+	var g := (_tepsi.size.x - 40.0) / kap
+	for i in kap:
+		var c := _tepsi_yuva(i)
+		var r := Rect2(c - Vector2(g * 0.5 - 6, 52), Vector2(g - 12, 104))
+		var renk := Color("f6e2bd")
+		if i == kap - 1:
+			renk = Color("f3b3a6") if tehlike else Color("efcfa0")
+		_kutu(r, renk, 18, 3, Color("6b4426"))
+	for i in tezgah.size():
+		var gizli := false
+		for u: Dictionary in _ucanlar:
+			if u.tur == "tepsi" and int(u.yuva) == i:
+				gizli = true
+		if not gizli:
+			Cizim.malzeme(self, tezgah[i], _tepsi_yuva(i), 40.0)
+	if tehlike and bolum.d.sonuc == "":
+		var son := _tepsi_yuva(kap - 1)
+		_yazi(son + Vector2(0, -78), "!", 54, Color("e04a3a"), 8, Color.WHITE)
 
 
 func _sutunlar() -> void:
@@ -498,5 +553,5 @@ func _sutunlar() -> void:
 				break
 			var o: float = 1.0 + 0.2 * _vurus[c] if k == 0 else 1.0
 			draw_set_transform(p, 0.0, Vector2(o, o))
-			Cizim.ciz(self, s[s.size() - 1 - k], Vector2.ZERO, 44.0)
+			Cizim.malzeme(self, s[s.size() - 1 - k], Vector2.ZERO, 44.0)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

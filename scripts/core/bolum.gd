@@ -1,67 +1,87 @@
 extends RefCounted
-## Tek bölümün kuralları: sütunlar, dönen bant, müşteriler.
-## Zaman adımlarla ilerler; her adımda bant bir yuva döner.
+## Tek bölümün kuralları: malzeme sütunları, hazırlık tezgâhı, mangal, dönen bant, müşteriler.
+##
+## Sütuna dokununca en üstteki malzeme tezgâha gider. Tezgâhtaki malzemeler hâlâ
+## gereken bir yemeğin tarifini tamamlarsa usta onları alır ve pişirir; pişen yemek
+## banda konur, isteyen müşteri önünden geçerken alır. Tezgâh dolarsa bölüm kaybedilir.
+##
 ## Arayüz yalnızca dokun() ve adim_at() çağırır, dönen olaylarla animasyon oynatır.
 
 const BOS := ""
+const UZAK := 1 << 20
 
-## Bölümün tüm durumu (kayıt ve testler için tek sözlük).
+## Bölümün tüm durumu (testler ve kayıt için tek sözlük).
 var d: Dictionary
 ## data/denge.json içindeki "bant" bölümü.
 var ayar: Dictionary
+## {yemek: [malzeme, ...]}
+var tarifler: Dictionary
+var pisme_adim := 6
+## Son dokun() çağrısının olayları (arayüz için): {"tur": "pisirildi", "yemek", "yuvalar"}
+var son_olaylar: Array = []
 
 
-## seviye: {"sutunlar": [[alt ... üst], ...], "siparisler": [{"yemek", "adet"}], "kapasite"?}
-func _init(seviye: Dictionary, bant_ayari: Dictionary) -> void:
-	ayar = bant_ayari
+## seviye: {"sutunlar": [[alt ... üst], ...], "siparisler": [{"yemek", "adet"}], "tezgah"?}
+func _init(seviye: Dictionary, denge: Dictionary, tarif_listesi: Dictionary) -> void:
+	ayar = denge.bant
+	tarifler = tarif_listesi
+	pisme_adim = int(denge.pisme_adim)
 	var bant := []
 	bant.resize(int(ayar.slot_sayisi))
 	bant.fill(BOS)
 	var sutunlar := []
 	for s: Array in seviye.sutunlar:
 		var kopya := []
-		for y in s:
-			kopya.append(str(y))
+		for m in s:
+			kopya.append(str(m))
 		sutunlar.append(kopya)
 	var siparisler := []
+	var ihtiyac := {}
 	var toplam := 0
 	for s: Dictionary in seviye.siparisler:
-		siparisler.append({"yemek": str(s.yemek), "adet": int(s.adet)})
+		var y := str(s.yemek)
+		siparisler.append({"yemek": y, "adet": int(s.adet)})
+		ihtiyac[y] = int(ihtiyac.get(y, 0)) + int(s.adet)
 		toplam += int(s.adet)
 	d = {
 		"sutunlar": sutunlar,
-		"bant": bant,
+		"tezgah": [],
+		"pisenler": [],
 		"kuyruk": [],
+		"bant": bant,
 		"koltuklar": [],
 		"siparisler": siparisler,
 		"siradaki": 0,
+		"ihtiyac": ihtiyac,
+		"yapilan": {},
 		"servis": 0,
 		"toplam": toplam,
 		"adim": 0,
 		"sonuc": "",
-		"kapasite": int(seviye.get("kapasite", ayar.kapasite)),
+		"kapasite": int(seviye.get("tezgah", denge.tezgah_kapasite)),
 	}
 	for i in (ayar.koltuk_slotlari as Array).size():
 		d.koltuklar.append({"yemek": BOS, "kalan": 0, "bekleme": 0})
 		_oturt(i)
 
 
-## Sütunun en üstündeki tek yemeği banda gönderir. Giriş yuvası doluysa yemek
-## kuyrukta bekler; kuyruktaki yemek de bant dolulğuna sayılır.
+## Sütunun en üstündeki tek malzemeyi tezgâha gönderir.
 func dokun(sutun: int) -> bool:
+	son_olaylar = []
 	if d.sonuc != "" or sutun < 0 or sutun >= d.sutunlar.size():
 		return false
 	var s: Array = d.sutunlar[sutun]
 	if s.is_empty():
 		return false
-	d.kuyruk.append(s.pop_back())
-	if dolu_sayisi() >= d.kapasite:
+	d.tezgah.append(s.pop_back())
+	son_olaylar = _pisir()
+	if d.tezgah.size() >= d.kapasite:
 		d.sonuc = "kaybetti"
 	return true
 
 
-## Bandı bir yuva döndürür, kuyruktan yemek alır, müşterilere servis eder.
-## Dönen olaylar: {"tur": "giris"|"alindi"|"kalkti"|"oturdu", ...}
+## Bir adım: bant döner, mangal pişirir, pişen banda girer, müşteriler alır.
+## Dönen olaylar: {"tur": "pisti"|"giris"|"alindi"|"kalkti"|"oturdu", ...}
 func adim_at() -> Array:
 	var olaylar := []
 	if d.sonuc != "":
@@ -73,6 +93,16 @@ func adim_at() -> Array:
 	for i in range(n - 1, 0, -1):
 		bant[i] = bant[i - 1]
 	bant[0] = son
+
+	var kalanlar := []
+	for p: Dictionary in d.pisenler:
+		p.kalan -= 1
+		if p.kalan <= 0:
+			d.kuyruk.append(p.yemek)
+			olaylar.append({"tur": "pisti", "yemek": p.yemek})
+		else:
+			kalanlar.append(p)
+	d.pisenler = kalanlar
 
 	var giris := int(ayar.giris_slotu)
 	if not d.kuyruk.is_empty() and bant[giris] == BOS:
@@ -103,13 +133,88 @@ func adim_at() -> Array:
 	return olaylar
 
 
-## Banttaki ve kuyruktaki yemek sayısı (doluluk çubuğu).
+## Tezgâhtaki malzeme sayısı.
 func dolu_sayisi() -> int:
-	var say: int = d.kuyruk.size()
+	return d.tezgah.size()
+
+
+## Hâlâ yapılması gereken adet.
+func gereken(yemek: String) -> int:
+	return int(d.ihtiyac.get(yemek, 0)) - int(d.yapilan.get(yemek, 0))
+
+
+## Küçük sayı = önce. Oturan müşterinin karşılanmamış siparişi 0, sonra sıradaki siparişler.
+func oncelik(yemek: String) -> int:
+	var istenen := 0
+	for k: Dictionary in d.koltuklar:
+		if k.yemek == yemek:
+			istenen += int(k.kalan)
+	if istenen > _yolda(yemek):
+		return 0
+	for j in range(d.siradaki, d.siparisler.size()):
+		if d.siparisler[j].yemek == yemek:
+			return 1 + j - d.siradaki
+	return UZAK
+
+
+## Tarifin tezgâhta eksik kalan malzemeleri (tekrarlar dahil).
+func eksikler(yemek: String, tezgah: Array) -> Array:
+	var kalan := tezgah.duplicate()
+	var eksik := []
+	for m in tarifler[yemek]:
+		var i := kalan.find(m)
+		if i >= 0:
+			kalan.remove_at(i)
+		else:
+			eksik.append(m)
+	return eksik
+
+
+## Pişmekte, bant kuyruğunda veya bantta olan yemek sayısı.
+func _yolda(yemek: String) -> int:
+	var say := 0
+	for p: Dictionary in d.pisenler:
+		if p.yemek == yemek:
+			say += 1
+	for y in d.kuyruk:
+		if y == yemek:
+			say += 1
 	for y in d.bant:
-		if y != BOS:
+		if y == yemek:
 			say += 1
 	return say
+
+
+## Tezgâhta tarifi tamamlanan gerekli yemekleri öncelik sırasıyla pişirmeye başlar.
+func _pisir() -> Array:
+	var olaylar := []
+	while true:
+		var secilen := ""
+		var en_iyi := UZAK + 1
+		for y: String in d.ihtiyac:
+			if gereken(y) <= 0 or not eksikler(y, d.tezgah).is_empty():
+				continue
+			var o := oncelik(y)
+			if o < en_iyi:
+				en_iyi = o
+				secilen = y
+		if secilen == "":
+			break
+		var yuvalar := []
+		for m in tarifler[secilen]:
+			for i in d.tezgah.size():
+				if d.tezgah[i] == m and not (i in yuvalar):
+					yuvalar.append(i)
+					break
+		var sirali := yuvalar.duplicate()
+		sirali.sort()
+		sirali.reverse()
+		for i: int in sirali:
+			d.tezgah.remove_at(i)
+		d.yapilan[secilen] = int(d.yapilan.get(secilen, 0)) + 1
+		d.pisenler.append({"yemek": secilen, "kalan": pisme_adim})
+		olaylar.append({"tur": "pisirildi", "yemek": secilen, "yuvalar": yuvalar})
+	return olaylar
 
 
 func _oturt(i: int) -> bool:

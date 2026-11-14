@@ -1,0 +1,16 @@
+[
+  {"id": "hamur", "ad": "Hamur"},
+  {"id": "kiyma", "ad": "Kıyma"},
+  {"id": "domates", "ad": "Domates"},
+  {"id": "biber", "ad": "Biber"},
+  {"id": "lavas", "ad": "Lavaş"},
+  {"id": "et", "ad": "Döner eti"},
+  {"id": "yogurt", "ad": "Yoğurt"},
+  {"id": "su", "ad": "Su"},
+  {"id": "peynir", "ad": "Peynir"},
+  {"id": "sogan", "ad": "Soğan"},
+  {"id": "mercimek", "ad": "Mercimek"},
+  {"id": "limon", "ad": "Limon"},
+  {"id": "kadayif", "ad": "Kadayıf"},
+  {"id": "fistik", "ad": "Fıstık"}
+]

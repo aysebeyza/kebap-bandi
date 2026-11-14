@@ -212,3 +212,107 @@ static func kisi(ci: CanvasItem, m: Vector2, s: float, ten: Color, sac: Color, g
 			daire(ci, h + c * s, s * 0.5, Color.WHITE, k)
 		sekil(ci, PackedVector2Array([h + Vector2(-s * 0.8, -s * 0.15), h + Vector2(s * 0.8, -s * 0.15),
 			h + Vector2(s * 0.8, s * 0.3), h + Vector2(-s * 0.8, s * 0.3)]), Color.WHITE, k)
+
+
+# --- Malzemeler ----------------------------------------------------------
+
+## m merkezli, yaklaşık r yarıçaplı malzeme çizer.
+static func malzeme(ci: CanvasItem, id: String, m: Vector2, r: float) -> void:
+	var k := maxf(1.5, r * 0.07)
+	match id:
+		"hamur":
+			daire(ci, m + Vector2(0, r * 0.05), r * 0.72, Color("fbf0dc"), k)
+			ci.draw_arc(m + Vector2(0, r * 0.05), r * 0.5, 0.3, 1.6, 10, Color("e6d2ac"), k, true)
+			ci.draw_circle(m + Vector2(-r * 0.28, -r * 0.2), r * 0.17, Color(1, 1, 1, 0.8))
+			for i in 5:
+				ci.draw_circle(m + Vector2(cos(i * 1.3) * r * 0.45, r * 0.15 + sin(i * 1.3) * r * 0.3), r * 0.05, Color("e2c58e"))
+		"kiyma":
+			sekil(ci, elips(m + Vector2(0, r * 0.15), r * 0.88, r * 0.62), Color("cf5a50"), k)
+			for i in 12:
+				var a := i * 2.399
+				var d := r * (0.1 + 0.55 * fmod(i * 0.618, 1.0))
+				var renk := Color("8e2f28") if i % 3 else Color("f3c2b8")
+				ci.draw_circle(m + Vector2(cos(a) * d, r * 0.15 + sin(a) * d * 0.6), r * 0.08, renk)
+		"domates":
+			daire(ci, m + Vector2(0, r * 0.08), r * 0.8, Color("e2412f"), k)
+			ci.draw_circle(m + Vector2(-r * 0.3, -r * 0.15), r * 0.16, Color(1, 1, 1, 0.5))
+			var y := PackedVector2Array()
+			for i in 10:
+				var a := TAU * i / 10.0 - PI * 0.5
+				var d := r * (0.38 if i % 2 == 0 else 0.14)
+				y.append(m + Vector2(0, -r * 0.62) + Vector2(cos(a), sin(a) * 0.6) * d)
+			sekil(ci, y, Color("4f9a35"), k * 0.7)
+		"biber":
+			cubuk(ci, m + Vector2(-r * 0.6, r * 0.45), m + Vector2(r * 0.45, -r * 0.4), r * 0.42, Color("4caf3c"), k)
+			ci.draw_line(m + Vector2(-r * 0.4, r * 0.25), m + Vector2(r * 0.3, -r * 0.32), Color(1, 1, 1, 0.4), r * 0.1, true)
+			ci.draw_line(m + Vector2(r * 0.55, -r * 0.5), m + Vector2(r * 0.8, -r * 0.8), Color("3f7d2a"), r * 0.14, true)
+		"lavas":
+			sekil(ci, elips(m, r * 0.95, r * 0.62, -0.15), Color("f2d9a6"), k)
+			for i in 7:
+				var a := i * 2.1
+				ci.draw_circle(m + Vector2(cos(a) * r * 0.55 * fmod(i * 0.7 + 0.3, 1.0), sin(a) * r * 0.35), r * 0.08, Color("c99a55"))
+			ci.draw_arc(m + Vector2(0, r * 0.9), r * 0.95, -PI * 0.75, -PI * 0.25, 12, Color("d8b67a"), k, true)
+		"et":
+			for i in 3:
+				var p := m + Vector2(-r * 0.2 + i * r * 0.2, -r * 0.3 + i * r * 0.28)
+				sekil(ci, elips(p, r * 0.62, r * 0.24, -0.25), Color("9b542c") if i % 2 == 0 else Color("b5683a"), k)
+				ci.draw_line(p + Vector2(-r * 0.4, 0), p + Vector2(r * 0.4, -r * 0.1), Color("6e3618"), k, true)
+		"yogurt":
+			sekil(ci, PackedVector2Array([m + Vector2(-r * 0.7, -r * 0.35), m + Vector2(r * 0.7, -r * 0.35),
+				m + Vector2(r * 0.55, r * 0.75), m + Vector2(-r * 0.55, r * 0.75)]), Color("fbfbf6"), k)
+			ci.draw_line(m + Vector2(-r * 0.64, r * 0.15), m + Vector2(r * 0.64, r * 0.15), Color("3d8bd6"), r * 0.22)
+			sekil(ci, elips(m + Vector2(0, -r * 0.35), r * 0.7, r * 0.2), Color("ffffff"), k)
+		"su":
+			sekil(ci, PackedVector2Array([m + Vector2(-r * 0.38, -r * 0.45), m + Vector2(r * 0.38, -r * 0.45),
+				m + Vector2(r * 0.42, r * 0.85), m + Vector2(-r * 0.42, r * 0.85)]), Color("a9dcf3"), k)
+			sekil(ci, PackedVector2Array([m + Vector2(-r * 0.2, -r * 0.85), m + Vector2(r * 0.2, -r * 0.85),
+				m + Vector2(r * 0.2, -r * 0.45), m + Vector2(-r * 0.2, -r * 0.45)]), Color("2f6fb5"), k)
+			ci.draw_rect(Rect2(m + Vector2(-r * 0.4, r * 0.05), Vector2(r * 0.8, r * 0.3)), Color("ffffff"))
+			ci.draw_line(m + Vector2(-r * 0.22, -r * 0.3), m + Vector2(-r * 0.22, r * 0.7), Color(1, 1, 1, 0.6), r * 0.08)
+		"peynir":
+			var ust := PackedVector2Array([m + Vector2(-r * 0.75, -r * 0.2), m + Vector2(r * 0.25, -r * 0.55),
+				m + Vector2(r * 0.85, -r * 0.3), m + Vector2(-r * 0.15, r * 0.05)])
+			sekil(ci, PackedVector2Array([m + Vector2(-r * 0.75, -r * 0.2), m + Vector2(-r * 0.15, r * 0.05),
+				m + Vector2(-r * 0.15, r * 0.65), m + Vector2(-r * 0.75, r * 0.4)]), Color("e9e4d4"), k)
+			sekil(ci, PackedVector2Array([m + Vector2(-r * 0.15, r * 0.05), m + Vector2(r * 0.85, -r * 0.3),
+				m + Vector2(r * 0.85, r * 0.3), m + Vector2(-r * 0.15, r * 0.65)]), Color("f4f1e6"), k)
+			sekil(ci, ust, Color("fdfcf7"), k)
+			ci.draw_circle(m + Vector2(r * 0.4, r * 0.15), r * 0.07, Color("d9d3bf"))
+			ci.draw_circle(m + Vector2(r * 0.15, r * 0.35), r * 0.05, Color("d9d3bf"))
+		"sogan":
+			var p := PackedVector2Array()
+			for i in 24:
+				var a := TAU * i / 24.0
+				var rr := r * 0.75 * (1.0 + 0.25 * maxf(0.0, -sin(a)) * 0.0)
+				p.append(m + Vector2(cos(a) * rr, r * 0.15 + sin(a) * rr * 0.85))
+			p.insert(18, m + Vector2(0, -r * 0.95))
+			sekil(ci, p, Color("b05aa8"), k)
+			ci.draw_arc(m + Vector2(0, r * 0.15), r * 0.45, -PI * 0.8, -PI * 0.2, 10, Color("e6b6e0"), k, true)
+			ci.draw_line(m + Vector2(0, r * 0.15), m + Vector2(0, -r * 0.7), Color("e6b6e0"), k, true)
+		"mercimek":
+			var kase := PackedVector2Array()
+			for i in 17:
+				var a := PI * i / 16.0
+				kase.append(m + Vector2(cos(a) * r * 0.9, sin(a) * r * 0.7))
+			sekil(ci, kase, Color("b98a55"), k)
+			sekil(ci, elips(m, r * 0.9, r * 0.28), Color("f08a3c"), k)
+			for i in 14:
+				var a := i * 2.399
+				ci.draw_circle(m + Vector2(cos(a) * r * 0.7 * fmod(i * 0.618, 1.0), -r * 0.08 + sin(a) * r * 0.2 * fmod(i * 0.618, 1.0)), r * 0.07, Color("d9622a"))
+		"limon":
+			sekil(ci, _kayik(m, r * 0.85, r * 0.6), Color("f7d83a"), k)
+			ci.draw_circle(m + Vector2(-r * 0.25, -r * 0.2), r * 0.15, Color(1, 1, 1, 0.5))
+		"kadayif":
+			daire(ci, m, r * 0.82, Color("e3a83e"), k)
+			for i in 16:
+				var a := i * 0.785
+				var d := r * (0.15 + 0.55 * fmod(i * 0.37, 1.0))
+				var p := m + Vector2(cos(a), sin(a)) * d
+				ci.draw_arc(p, r * 0.18, a, a + 2.2, 6, Color("b9781f"), k, true)
+		"fistik":
+			for c: Vector2 in [Vector2(-0.38, 0.2), Vector2(0.38, 0.2), Vector2(0, -0.25)]:
+				var p := m + c * r
+				sekil(ci, elips(p, r * 0.36, r * 0.27, 0.5), Color("e8d9b5"), k)
+				sekil(ci, elips(p + Vector2(r * 0.04, -r * 0.02), r * 0.22, r * 0.15, 0.5), Color("8cc152"), k * 0.6)
+		_:
+			daire(ci, m, r * 0.7, Color.GRAY, k)

@@ -43,10 +43,19 @@ func esit(a, b, mesaj: String) -> void:
 	bekle(a == b, "%s (beklenen %s, gelen %s)" % [mesaj, str(b), str(a)])
 
 
-## Küçük deneme bandı: 8 yuva, tek koltuk 2. yuvada.
+## Küçük deneme ayarı: 8 yuvalık bant, tek koltuk 2. yuvada, tezgâh 4.
 func kucuk_ayar() -> Dictionary:
-	return {"slot_sayisi": 8, "kapasite": 6, "giris_slotu": 0,
-		"koltuk_slotlari": [2], "musteri_gelis_adim": 2, "adim_suresi": 0.25}
+	return {"tezgah_kapasite": 4, "pisme_adim": 2, "bant": {"slot_sayisi": 8, "giris_slotu": 0,
+		"koltuk_slotlari": [2], "musteri_gelis_adim": 2, "adim_suresi": 0.25}}
+
+
+func kucuk_tarif() -> Dictionary:
+	return {"lahmacun": ["hamur", "kiyma"], "pide": ["hamur", "peynir"], "ayran": ["yogurt"]}
+
+
+func yeni(sutunlar: Array, siparisler: Array, ayar: Dictionary = {}):
+	return Bolum.new({"sutunlar": sutunlar, "siparisler": siparisler},
+		kucuk_ayar() if ayar.is_empty() else ayar, kucuk_tarif())
 
 
 func adimla(b, kac: int) -> Array:
@@ -56,83 +65,143 @@ func adimla(b, kac: int) -> Array:
 	return hepsi
 
 
+func turler(olaylar: Array) -> Array:
+	var t := []
+	for o: Dictionary in olaylar:
+		t.append(o.tur)
+	return t
+
+
 # --- Kurallar ------------------------------------------------------------
 
-func test_dokunma_tek_yemek_gonderir() -> void:
-	var b = Bolum.new({"sutunlar": [["adana", "lahmacun", "lahmacun"]],
-		"siparisler": [{"yemek": "lahmacun", "adet": 2}]}, kucuk_ayar())
+func test_dokunma_tek_malzeme_tezgaha_gider() -> void:
+	var b = yeni([["peynir", "kiyma", "hamur"]], [{"yemek": "lahmacun", "adet": 1}])
 	bekle(b.dokun(0), "dokunma kabul edilmeli")
-	esit(b.d.sutunlar[0].size(), 2, "sütundan yalnızca bir yemek çıkar")
-	esit(b.dolu_sayisi(), 1, "bantta/kuyrukta bir yemek")
+	esit(b.d.sutunlar[0].size(), 2, "sütundan yalnızca bir malzeme çıkar")
+	esit(b.d.tezgah, ["hamur"], "malzeme tezgâha gider")
 	bekle(not b.dokun(3), "olmayan sütun reddedilir")
 
 
-func test_bant_doner_musteri_alir() -> void:
-	var b = Bolum.new({"sutunlar": [["lahmacun"]],
-		"siparisler": [{"yemek": "lahmacun", "adet": 1}]}, kucuk_ayar())
+func test_tarif_tamamlaninca_usta_pisirir() -> void:
+	var b = yeni([["kiyma", "hamur"]], [{"yemek": "lahmacun", "adet": 1}])
 	b.dokun(0)
-	var olaylar := adimla(b, 1)
-	esit(b.d.bant[0], "lahmacun", "yemek giriş yuvasına konur")
-	esit(olaylar[0].tur, "giris", "giriş olayı")
+	esit(b.son_olaylar.size(), 0, "tek malzemeyle pişmez")
+	b.dokun(0)
+	esit(b.d.tezgah, [], "tarifin malzemeleri tezgâhtan alınır")
+	esit(b.d.pisenler.size(), 1, "yemek mangala konur")
+	esit(b.son_olaylar[0].yemek, "lahmacun", "pişirme olayı")
+	esit(b.son_olaylar[0].yuvalar, [0, 1], "olay tezgâh yuvalarını bildirir")
+
+
+func test_pisen_yemek_banda_gelir_musteri_alir() -> void:
+	var b = yeni([["kiyma", "hamur"]], [{"yemek": "lahmacun", "adet": 1}])
+	b.dokun(0)
+	b.dokun(0)
+	var olaylar := adimla(b, 2)
+	bekle("pisti" in turler(olaylar), "pişme süresi sonunda yemek hazır")
+	esit(b.d.bant[0], "lahmacun", "hazır yemek banda girer")
 	adimla(b, 2)
 	esit(b.d.servis, 1, "müşteri önünden geçen yemeği alır")
 	esit(b.d.sonuc, "kazandi", "tüm sipariş bitince kazanılır")
 
 
-func test_istenmeyen_yemek_doner() -> void:
-	var b = Bolum.new({"sutunlar": [["lahmacun", "adana"]],
-		"siparisler": [{"yemek": "lahmacun", "adet": 1}, {"yemek": "adana", "adet": 1}]}, kucuk_ayar())
+func test_gereksiz_malzeme_tezgahta_bekler() -> void:
+	var b = yeni([["kiyma", "hamur", "yogurt"]], [{"yemek": "lahmacun", "adet": 1}])
 	b.dokun(0)
-	adimla(b, 10)
-	esit(b.d.servis, 0, "müşteri istemediği yemeği almaz")
-	esit(b.dolu_sayisi(), 1, "adana bantta dönmeye devam eder")
+	adimla(b, 5)
+	esit(b.d.tezgah, ["yogurt"], "hiçbir siparişte olmayan malzeme tezgâhta kalır")
+	esit(b.d.pisenler.size(), 0, "istenmeyen yemek pişirilmez")
+
+
+func test_oturan_musterinin_yemegi_once_pisirilir() -> void:
+	var b = yeni([["hamur", "peynir", "kiyma"]],
+		[{"yemek": "pide", "adet": 1}, {"yemek": "lahmacun", "adet": 1}])
+	b.dokun(0)
+	b.dokun(0)
+	b.dokun(0)
+	esit(b.d.pisenler[0].yemek, "pide", "iki tarif tamamsa oturan müşterininki seçilir")
+	esit(b.d.tezgah, ["kiyma"], "kalan malzeme tezgâhta bekler")
 
 
 func test_kalkan_musterinin_yerine_yenisi_gelir() -> void:
-	var b = Bolum.new({"sutunlar": [["adana", "lahmacun"]],
-		"siparisler": [{"yemek": "lahmacun", "adet": 1}, {"yemek": "adana", "adet": 1}]}, kucuk_ayar())
+	var b = yeni([["yogurt", "kiyma", "hamur"]],
+		[{"yemek": "lahmacun", "adet": 1}, {"yemek": "ayran", "adet": 1}])
 	b.dokun(0)
-	var olaylar := adimla(b, 3)
-	esit(olaylar.back().tur, "kalkti", "siparişi biten müşteri kalkar")
+	b.dokun(0)
+	var olaylar := adimla(b, 5)
+	bekle("kalkti" in turler(olaylar), "siparişi biten müşteri kalkar")
 	olaylar = adimla(b, 2)
-	esit(olaylar.back().tur, "oturdu", "bekleme sonrası yeni müşteri oturur")
-	esit(b.d.koltuklar[0].yemek, "adana", "yeni müşteri sıradaki siparişi verir")
+	bekle("oturdu" in turler(olaylar), "bekleme sonrası yeni müşteri oturur")
+	esit(b.d.koltuklar[0].yemek, "ayran", "yeni müşteri sıradaki siparişi verir")
 	b.dokun(0)
-	adimla(b, 10)
+	adimla(b, 12)
 	esit(b.d.sonuc, "kazandi", "ikinci sipariş de servis edilir")
 
 
-func test_kapasite_dolunca_kaybeder() -> void:
+func test_tezgah_dolunca_kaybeder() -> void:
 	var ayar := kucuk_ayar()
-	ayar.kapasite = 3
-	var b = Bolum.new({"sutunlar": [["adana", "adana", "adana", "adana"]],
-		"siparisler": [{"yemek": "lahmacun", "adet": 1}]}, ayar)
+	ayar.tezgah_kapasite = 3
+	var b = yeni([["hamur", "yogurt", "peynir", "peynir"]], [{"yemek": "lahmacun", "adet": 1}], ayar)
 	b.dokun(0)
 	b.dokun(0)
-	esit(b.d.sonuc, "", "kapasite dolmadan oyun sürer")
+	esit(b.d.sonuc, "", "tezgâh dolmadan oyun sürer")
 	b.dokun(0)
-	esit(b.d.sonuc, "kaybetti", "bant kapasitesi dolunca kaybedilir")
+	esit(b.d.sonuc, "kaybetti", "tezgâh dolunca kaybedilir")
 	bekle(not b.dokun(0), "bitmiş bölümde dokunma reddedilir")
+
+
+func test_son_yuvada_tarif_tamamlanirsa_kaybetmez() -> void:
+	var ayar := kucuk_ayar()
+	ayar.tezgah_kapasite = 3
+	var b = yeni([["kiyma", "peynir", "hamur"]], [{"yemek": "lahmacun", "adet": 1}], ayar)
+	b.dokun(0)
+	b.dokun(0)
+	b.dokun(0)
+	esit(b.d.sonuc, "", "son malzeme tarifi tamamlarsa tezgâh boşalır")
+	esit(b.d.tezgah, ["peynir"], "kalan malzeme")
+
+
+# --- Veri ----------------------------------------------------------------
+
+func test_tarif_malzemeleri_tanimli() -> void:
+	var malzemeler := []
+	for m: Dictionary in veri.malzemeler:
+		malzemeler.append(m.id)
+	for y: Dictionary in veri.yemekler:
+		for m in y.tarif:
+			bekle(m in malzemeler, "%s tarifindeki %s tanımlı olmalı" % [y.id, m])
 
 
 # --- Üretici -------------------------------------------------------------
 
-func test_uretici_toplamlar_esit() -> void:
+func test_uretici_malzemeler_tariflere_esit() -> void:
+	var tarifler := Veri.tarifler(veri)
 	var sev := Uretici.taslak(veri.bolumler[10], 42, veri)
 	var sutunda := {}
 	for s: Array in sev.sutunlar:
-		for y in s:
-			sutunda[y] = int(sutunda.get(y, 0)) + 1
-	var sipariste := {}
+		for m in s:
+			sutunda[m] = int(sutunda.get(m, 0)) + 1
+	var gereken := {}
 	for s: Dictionary in sev.siparisler:
-		sipariste[s.yemek] = int(sipariste.get(s.yemek, 0)) + int(s.adet)
-	esit(sutunda, sipariste, "her yemeğin sütundaki sayısı sipariş sayısına eşit")
+		for m in tarifler[s.yemek]:
+			gereken[m] = int(gereken.get(m, 0)) + int(s.adet)
+	esit(sutunda, gereken, "sütunlardaki malzemeler siparişlerin tariflerine eşit")
 
 
 func test_uretici_ayni_tohum_ayni_bolum() -> void:
 	var a := Uretici.taslak(veri.bolumler[5], 7, veri)
 	var b := Uretici.taslak(veri.bolumler[5], 7, veri)
 	esit(a, b, "aynı tohum aynı bölümü verir")
+
+
+func test_her_bolumde_tum_cesitler_var() -> void:
+	for p: Dictionary in veri.bolumler:
+		var sev := Uretici.taslak(p, int(p.tohum), veri)
+		var cesit := {}
+		for s: Dictionary in sev.siparisler:
+			cesit[s.yemek] = true
+		esit(cesit.size(), int(p.yemek_cesidi), "bölüm %d çeşit sayısı" % int(p.no))
+		bekle(int(p.yemek_cesidi) >= 7, "bölüm %d en az 7 çeşit" % int(p.no))
 
 
 func test_tum_bolumler_cozulebilir() -> void:
