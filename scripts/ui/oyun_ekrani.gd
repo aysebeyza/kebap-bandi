@@ -18,6 +18,8 @@ const HUCRE := 112.0       # sütunlarda bir yemeğin yüksekliği
 const KAHVE := Color("5a3a22")
 ## assets/cizimler içindeki müşteri resmi sayısı (musteri_1 ... musteri_8).
 const MUSTERI_RESMI := 8
+## assets/cizimler/bant.png içinde gri şeridin orta çizgisinin kapladığı alan (resmin oranı olarak).
+const BANT_SERIT := Rect2(0.065, 0.09, 0.87, 0.70)
 
 var veri: Dictionary
 var ayar: Dictionary
@@ -114,7 +116,8 @@ func _yerlesim() -> void:
 	for slot in ayar.koltuk_slotlari:
 		var p := _slot_konum(float(slot))
 		var ustte := p.y < _tezgah.get_center().y
-		_koltuk_bas.append(Vector2(p.x, _tezgah.position.y - 100.0 if ustte else _tezgah.end.y + 80.0))
+		var ust_y := _tezgah.position.y - (150.0 if Cizim.doku("musteri_1") else 100.0)
+		_koltuk_bas.append(Vector2(p.x, ust_y if ustte else _tezgah.end.y + 80.0))
 	queue_redraw()
 
 
@@ -421,7 +424,9 @@ func _arka_plan() -> void:
 func _bant(t: float) -> void:
 	var bant_resmi := Cizim.doku("bant")
 	if bant_resmi:
-		draw_texture_rect(bant_resmi, _tezgah.grow(16), false)
+		# Resmi, gri şeridin orta çizgisi yemeklerin yolu (_serit) ile çakışacak şekilde yerleştir.
+		var boy := Vector2(_serit.size.x / BANT_SERIT.size.x, _serit.size.y / BANT_SERIT.size.y)
+		draw_texture_rect(bant_resmi, Rect2(_serit.position - BANT_SERIT.position * boy, boy), false)
 	else:
 		var on_yuz := _tezgah.grow(8)
 		on_yuz.position.y += 34
@@ -463,11 +468,12 @@ func _usta() -> void:
 		Cizim.sekil(self, PackedVector2Array([d + Vector2(-46, -120), d + Vector2(46, -120), d + Vector2(30, 100), d + Vector2(-30, 100)]), Color("9b542c"), 4)
 		for k in 5:
 			draw_line(d + Vector2(-42 + k * 3, -90 + k * 40), d + Vector2(42 - k * 3, -80 + k * 40), Color("6e3618"), 4, true)
-	# ayran kasası (sağ)
+	# sağ köşe: ayranlar (el çizimi varsa kasa olmadan)
 	var a := Vector2(_mutfak.end.x - 100, m.y + 20)
-	_kutu(Rect2(a + Vector2(-60, -20), Vector2(120, 90)), Color("3d8bd6"), 10, 4)
+	if Cizim.doku("bant") == null:
+		_kutu(Rect2(a + Vector2(-60, -20), Vector2(120, 90)), Color("3d8bd6"), 10, 4)
 	for k in 3:
-		Cizim.ciz(self, "ayran", a + Vector2(-36 + k * 36, -38), 20.0)
+		Cizim.ciz(self, "ayran", a + Vector2(-36 + k * 36, -38 + (k % 2) * 30), 26.0)
 	# usta
 	var usta := Cizim.doku("usta")
 	if usta:
@@ -478,7 +484,7 @@ func _usta() -> void:
 	var g := _mangal
 	var mangal := Cizim.doku("mangal")
 	if mangal:
-		_resim(mangal, g.grow(24))
+		_resim(mangal, Rect2(g.get_center().x - 160, g.position.y - 60, 320, g.size.y + 90))
 	else:
 		_kutu(g, Color("4a4d52"), 16, 5)
 		draw_rect(Rect2(g.position + Vector2(18, 16), Vector2(g.size.x - 36, 36)), Color("f07a2a"))
@@ -548,7 +554,8 @@ func _ust_bilgi() -> void:
 	draw_polyline(PackedVector2Array([o + Vector2(-28, 0), o + Vector2(-8, 22), o + Vector2(30, -24)]), Color("2e7d32"), 22, true)
 	draw_polyline(PackedVector2Array([o + Vector2(-28, 0), o + Vector2(-8, 22), o + Vector2(30, -24)]), Color("57c84d"), 14, true)
 	_yazi(Vector2(cx + 50, r.get_center().y), "%d / %d" % [bolum.d.servis, bolum.d.toplam], 56, Color.WHITE, 8, Color(0.25, 0.15, 0.08))
-	_yazi(Vector2(110, _ust + 34), "Bölüm %d" % bolum_no, 36, KAHVE)
+	_kutu(Rect2(24, _ust + 12, 190, 52), Color(0.35, 0.22, 0.12, 0.8), 26)
+	_yazi(Vector2(119, _ust + 36), "Bölüm %d" % bolum_no, 34, Color.WHITE)
 
 
 ## Hazırlık tezgâhı: kapasite kadar yuva; son yuvaya bir şey kalınca kırmızı uyarır.

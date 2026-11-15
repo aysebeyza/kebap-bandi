@@ -1,5 +1,5 @@
 extends SceneTree
-## assets/simgeler altındaki tüm simgeleri adlarıyla tek sayfaya dizer:
+## Tüm yemek ve malzeme resimlerini (önce assets/cizimler, yoksa assets/simgeler) adlarıyla tek sayfaya dizer:
 ## docs/simgeler.png. Pencereli çalışır:  godot --path . -s tools/simge_sayfasi.gd
 
 const Veri = preload("res://scripts/core/veri.gd")
@@ -21,7 +21,10 @@ func _init() -> void:
 	root.add_child(vp)
 	var dokular := []
 	for e: Array in liste:
-		var img := Image.load_from_file(ProjectSettings.globalize_path("res://assets/simgeler/%s.png" % e[0]))
+		var yol := "res://assets/cizimler/%s.png" % e[0]
+		if not FileAccess.file_exists(yol):
+			yol = "res://assets/simgeler/%s.png" % e[0]
+		var img := Image.load_from_file(ProjectSettings.globalize_path(yol))
 		dokular.append(ImageTexture.create_from_image(img))
 	var font := ThemeDB.fallback_font
 	var tuval := Node2D.new()

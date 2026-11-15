@@ -31,7 +31,8 @@ Kesinleşen kurallar [PLAN.md](../PLAN.md) içindedir. Bu dosya ayrıntıları v
 ## Ekran (ilk sürüm)
 
 - 10 yemek ve 14 malzeme Blender'da 3D modellenip simgeye çevrilir (`tools/blender/simgeler.py`, `docs/simgeler.png`): yumuşak ışık, sıcak ortam rengi, koyu kahve kontur. Simgelerin altında yumuşak gölge çizilir.
-- Müşteriler, usta, restoran ve arayüz şimdilik kodla çiziliyor (`scripts/ui/cizim.gd`, `scripts/ui/oyun_ekrani.gd`).
+- Asıl görseller yapay zekâyla çizdirilen el çizimi resimlerdir (`docs/GORSEL_REHBERI.md`, ham hâlleri `assets/ham/`, kesilmiş hâlleri `assets/cizimler/`): 14 malzeme, 10 yemek, usta, 8 müşteri, mangal, döner ocağı, bant ve restoran arka planı. Blender simgeleri ve kod çizimleri yalnızca yedektir.
+- Tezgâh yuvaları, sütun panosu ve sipariş balonları hâlâ kodla çiziliyor.
 - Mangalda pişen yemeğin çevresindeki sarı halka pişme süresini gösterir.
 - Tezgâhın son iki yuvası kalınca son yuva kırmızılaşır ve üstünde "!" çıkar.
 - Müşteriler bandın üst ve alt kenarında, köşelere yakın oturur. Sipariş balonu dış yanda durur.
