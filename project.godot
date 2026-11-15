@@ -12,6 +12,7 @@ config/features=PackedStringArray("4.7", "Mobile")
 
 Oyun="*res://scripts/oyun.gd"
 Reklam="*res://scripts/reklam.gd"
+Ses="*res://scripts/ses.gd"
 
 [display]
 

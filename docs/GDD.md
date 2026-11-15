@@ -51,6 +51,13 @@ Ayarlar `data/denge.json → ekonomi`, kurallar `scripts/core/ekonomi.gd` ve `sc
 - Reklam hizmeti `scripts/reklam.gd` (otomatik yüklenen `Reklam`). Gerçek reklam ağı bağlanana kadar 3 sn'lik deneme reklamı gösterir. Gerçek ağ (ör. AdMob) için bir hesap, Godot Android eklentisi ve yayın imzası gerekir; yalnızca `odullu_goster()` içi değişir.
 - Altın şimdilik yalnızca yuva açmaya harcanır.
 
+## Ses
+
+- Tüm sesler `tools/ses_uret.py` ile sentezlenir (dışarıdan ses dosyası yok, lisans sorunu yok): dokunma, mangal cızırtısı, maşa tıngırtısı, servis zili, sevinç, uyarı, tezgâh doldu, kazanma, kaybetme, altın, düğme.
+- Müzik: Hicaz makamında saz benzeri telli ezgi, dem ve maksum usulünde darbuka; 19 sn'lik döngü.
+- Çalan: `scripts/ses.gd` (otomatik yüklenen `Ses`). Oyunda sağ üstteki hoparlör düğmesi sesi açıp kapatır; ayar kayıtta tutulur.
+- *Onay bekleyen varsayılan:* Sesler geçicidir; beğenilmezse ücretsiz (CC0) ses paketleriyle değiştirilebilir, dosya adları aynı kalırsa kod değişmez.
+
 ## Henüz karar verilmeyenler (sonraki aşamalar)
 
 - Yıldızlar ve bahşiş (*varsayılan önerisi:* tezgâhın en yüksek doluluğuna göre 1–3 yıldız)

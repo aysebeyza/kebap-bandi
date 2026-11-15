@@ -249,8 +249,12 @@ func _dokun(s: int) -> void:
 	if not bolum.dokun(s):
 		return
 	_vurus[s] = 1.0
+	Ses.cal("dokun")
 	if not bolum.son_olaylar.is_empty():
 		_vur()
+		Ses.cal("pisir", 1.0, -4.0)
+	elif bolum.d.sonuc == "" and bolum.dolu_sayisi() >= bolum.d.kapasite - 2:
+		Ses.cal("uyari", 1.0, -6.0)
 	_ucan("malzeme", malzeme, _sutun_ust_konum(s), _tepsi_yuva(yuva), 0.18, 0.0, "tepsi", yuva)
 	for o: Dictionary in bolum.son_olaylar:
 		var k: int = bolum.d.pisenler.size() - 1
@@ -268,6 +272,8 @@ func _olaylar(liste: Array) -> void:
 		match o.tur:
 			"alindi":
 				var i := int(o.koltuk)
+				Ses.cal("servis", 1.0, -3.0)
+				Ses.cal("sevinc", 0.9 + 0.1 * i, -8.0)
 				_sevinc[i] = 1.0
 				_parcaciklar.append({"tur": "kalp", "p": _koltuk_bas[i] + Vector2(0, -BAS * 1.2), "v": Vector2(0, -90),
 					"t": 0.0, "omur": 0.9, "renk": Color("ff5a7a"), "boy": 18.0, "aci": 0.0})
@@ -279,6 +285,7 @@ func _olaylar(liste: Array) -> void:
 				_gorunum[i] = 0.0
 	if bolum.d.sonuc == "kazandi" and not liste.is_empty():
 		_konfeti()
+		Ses.cal("kazandi")
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -287,6 +294,13 @@ func _gui_input(event: InputEvent) -> void:
 	if oto or bolum == null or bolum.d.sonuc != "":
 		return
 	var p: Vector2 = event.position
+	if _ses_dugmesi().grow(16).has_point(p):
+		var acik := not (Ses.efekt_acik or Ses.muzik_acik)
+		Ses.efekt_acik = acik
+		Ses.muzik_acik = acik
+		Ses.cal("dugme")
+		accept_event()
+		return
 	if _sutun_alani.has_point(p):
 		var s := int((p.x - _sutun_alani.position.x) / _sutun_genislik())
 		_dokun(clampi(s, 0, bolum.d.sutunlar.size() - 1))
@@ -376,7 +390,9 @@ func _dugmeler(liste: Array) -> void:
 			sb.border_color = renk[1] if durum != "disabled" else Color("a39889")
 			b.add_theme_stylebox_override(durum, sb)
 		var cagri: Callable = d[2]
-		b.pressed.connect(func(): cagri.call_deferred())
+		b.pressed.connect(func():
+			Ses.cal("dugme")
+			cagri.call_deferred())
 		_panel_dugmeler.add_child(b)
 
 
@@ -404,6 +420,7 @@ func _paneli_ac() -> void:
 
 ## Tezgâh doldu: altınla ya da reklamla bir yuva aç, ya da vazgeç.
 func _doldu_paneli() -> void:
+	Ses.cal("doldu")
 	_panel_tur = "doldu"
 	_panel_baslik.text = "Tezgâh doldu!"
 	_panel_alt.text = "Bir yuva aç ve devam et"
@@ -454,6 +471,7 @@ func _cubugu_durdur() -> void:
 	if _cubuk == null or not _cubuk.calisiyor:
 		return
 	_kazanilan = _cubuk.durdur()
+	Ses.cal("altin")
 	_panel_tur = "odul"
 	_panel_alt.text = "+%d altın kazandın!" % _kazanilan
 	var kat := int(Oyun.ekonomi.reklam_carpani)
@@ -468,6 +486,7 @@ func _odulu_al(kat: int) -> void:
 		return
 	_panel_tur = ""
 	Oyun.altin_ekle(_kazanilan * kat)
+	Ses.cal("altin", 1.15)
 	baslat(bolum_no + 1)
 
 
@@ -477,6 +496,7 @@ func _reklamla_katla() -> void:
 
 
 func _kayip_paneli() -> void:
+	Ses.cal("kaybetti")
 	_panel_tur = "kayip"
 	_panel_baslik.text = "Yandın!"
 	_panel_alt.text = "Bölüm %d — tekrar dene" % bolum_no
@@ -733,6 +753,7 @@ func _ust_bilgi() -> void:
 	draw_circle(para, 14, Color("e0a422"))
 	draw_circle(para + Vector2(-6, -7), 5, Color(1, 1, 1, 0.7))
 	_yazi(Vector2(ar.position.x + 120, ar.get_center().y), str(Oyun.altin), 40, Color.WHITE, 6, Color(0.25, 0.15, 0.08))
+	_ses_ciz()
 	_kutu(Rect2(24, _ust + 12, 190, 52), Color(0.35, 0.22, 0.12, 0.8), 26)
 	_yazi(Vector2(119, _ust + 36), "Bölüm %d" % bolum_no, 34, Color.WHITE)
 
@@ -862,6 +883,7 @@ func _canlandir(dt: float) -> void:
 			_vurus_kivilcim = true
 			if _usta_govde:
 				_kivilcim(_masa_ucu())
+				Ses.cal("vurus", 1.0, -6.0)
 		if _vurus_t > VURUS_SURE:
 			_vurus_t = -1.0
 	var pisiyor: bool = bolum != null and not bolum.d.pisenler.is_empty()
@@ -935,3 +957,24 @@ func _parcacik_ciz(turler: Array) -> void:
 				draw_circle(p + Vector2(-b * 0.5, 0), b * 0.55, renk)
 				draw_circle(p + Vector2(b * 0.5, 0), b * 0.55, renk)
 				draw_colored_polygon(PackedVector2Array([p + Vector2(-b * 1.02, b * 0.15), p + Vector2(b * 1.02, b * 0.15), p + Vector2(0, b * 1.2)]), renk)
+
+
+# --- Ses düğmesi --------------------------------------------------------------
+
+func _ses_dugmesi() -> Rect2:
+	return Rect2(size.x - 84, _ust + 12, 60, 52)
+
+
+func _ses_ciz() -> void:
+	var r := _ses_dugmesi()
+	_kutu(r, Color(0.35, 0.22, 0.12, 0.8), 26)
+	var m := r.get_center() + Vector2(-6, 0)
+	var beyaz := Color.WHITE
+	draw_colored_polygon(PackedVector2Array([m + Vector2(-14, -7), m + Vector2(-6, -7), m + Vector2(4, -16),
+		m + Vector2(4, 16), m + Vector2(-6, 7), m + Vector2(-14, 7)]), beyaz)
+	if Ses.efekt_acik or Ses.muzik_acik:
+		draw_arc(m + Vector2(6, 0), 9, -0.9, 0.9, 8, beyaz, 3, true)
+		draw_arc(m + Vector2(6, 0), 16, -0.9, 0.9, 10, beyaz, 3, true)
+	else:
+		draw_line(m + Vector2(10, -9), m + Vector2(24, 9), Color("ff6a5a"), 4, true)
+		draw_line(m + Vector2(24, -9), m + Vector2(10, 9), Color("ff6a5a"), 4, true)

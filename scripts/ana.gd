@@ -24,6 +24,7 @@ func _ready() -> void:
 	ekran.hiz = float(arg.get("hiz", "1"))
 	ekran.bolum_bitti.connect(_bolum_bitti.bind(int(arg.get("duman", "0"))))
 	ekran.baslat(int(arg.get("bolum", str(Oyun.bolum))))
+	Ses.muzik_baslat()
 	if arg.has("panel"):
 		await get_tree().create_timer(0.5).timeout
 		_panel_ac(ekran, str(arg.panel))
