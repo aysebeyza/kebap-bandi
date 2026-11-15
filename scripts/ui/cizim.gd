@@ -9,11 +9,19 @@ const SIMGE_OLCEK := 2.5
 static var _dokular := {}
 
 
-## assets/simgeler/<id>.png varsa onu döner (tools/blender/simgeler.py üretir), yoksa null.
+## Resim arama sırası: önce el çizimi (assets/cizimler, tools/cizim_isle.gd üretir),
+## sonra Blender simgesi (assets/simgeler). Hiçbiri yoksa null; çağıran kodla çizer.
+const KLASORLER := ["res://assets/cizimler/%s.png", "res://assets/simgeler/%s.png"]
+
+
 static func doku(id: String) -> Texture2D:
 	if not _dokular.has(id):
-		var yol := "res://assets/simgeler/%s.png" % id
-		_dokular[id] = load(yol) if ResourceLoader.exists(yol) else null
+		_dokular[id] = null
+		for k: String in KLASORLER:
+			var yol := k % id
+			if ResourceLoader.exists(yol):
+				_dokular[id] = load(yol)
+				break
 	return _dokular[id]
 
 

@@ -16,6 +16,8 @@ const GOMLEK := [Color("e05a7a"), Color("3f8fd2"), Color("f0b43c"), Color("4caf7
 const BAS := 60.0          # müşteri başı yarıçapı
 const HUCRE := 112.0       # sütunlarda bir yemeğin yüksekliği
 const KAHVE := Color("5a3a22")
+## assets/cizimler içindeki müşteri resmi sayısı (musteri_1 ... musteri_8).
+const MUSTERI_RESMI := 8
 
 var veri: Dictionary
 var ayar: Dictionary
@@ -378,7 +380,22 @@ func _yazi(merkez: Vector2, metin: String, boy: int, renk: Color, kontur: int = 
 	draw_string(_font, p, metin, HORIZONTAL_ALIGNMENT_CENTER, w, boy, renk)
 
 
+## Resmi kutuya en-boy oranını koruyarak yerleştirir: kapla=true taşarak kaplar,
+## değilse sığdırır ve alt ortaya hizalar.
+func _resim(t: Texture2D, r: Rect2, kapla: bool = false) -> void:
+	var ts := t.get_size()
+	var o := maxf(r.size.x / ts.x, r.size.y / ts.y) if kapla else minf(r.size.x / ts.x, r.size.y / ts.y)
+	var boy := ts * o
+	var konum := Vector2(r.position.x + (r.size.x - boy.x) * 0.5,
+		r.position.y + ((r.size.y - boy.y) * 0.5 if kapla else r.size.y - boy.y))
+	draw_texture_rect(t, Rect2(konum, boy), false)
+
+
 func _arka_plan() -> void:
+	var arka := Cizim.doku("arka_plan")
+	if arka:
+		_resim(arka, Rect2(Vector2.ZERO, size), true)
+		return
 	draw_rect(Rect2(Vector2.ZERO, size), Color("f1d6a4"))
 	var duvar_alt := _tezgah.position.y + 30.0
 	draw_rect(Rect2(0, 0, size.x, duvar_alt), Color("ecc68e"))
@@ -402,19 +419,24 @@ func _arka_plan() -> void:
 
 
 func _bant(t: float) -> void:
-	var on_yuz := _tezgah.grow(8)
-	on_yuz.position.y += 34
-	_kutu(on_yuz, Color("9c5a2a"), 80, 4)
-	_kutu(_tezgah, Color("c3c7cc"), 76, 5)
-	_kutu(_serit.grow(38), Color("d3d6da"), 60, 0)
+	var bant_resmi := Cizim.doku("bant")
+	if bant_resmi:
+		draw_texture_rect(bant_resmi, _tezgah.grow(16), false)
+	else:
+		var on_yuz := _tezgah.grow(8)
+		on_yuz.position.y += 34
+		_kutu(on_yuz, Color("9c5a2a"), 80, 4)
+		_kutu(_tezgah, Color("c3c7cc"), 76, 5)
+		_kutu(_serit.grow(38), Color("d3d6da"), 60, 0)
 	var n := int(ayar.slot_sayisi)
 	for k in n:
 		var f := k + t - 0.5
 		var p := _slot_konum(f)
 		var yon := (_slot_konum(f + 0.05) - p).normalized()
 		var dik := yon.orthogonal() * 40.0
-		draw_line(p - dik, p + dik, Color(0, 0, 0, 0.13), 3, true)
-	_kutu(_mutfak, Color("5b4636"), 44, 6, Color("8a8f96"))
+		draw_line(p - dik, p + dik, Color(0, 0, 0, 0.07 if bant_resmi else 0.13), 3, true)
+	if not bant_resmi:
+		_kutu(_mutfak, Color("5b4636"), 44, 6, Color("8a8f96"))
 	_usta()
 	var bant: Array = bolum.d.bant
 	for i in n:
@@ -432,26 +454,38 @@ func _bant(t: float) -> void:
 func _usta() -> void:
 	var m := _mutfak.get_center()
 	# döner ocağı (sol)
-	var d := Vector2(_mutfak.position.x + 90, m.y - 20)
-	draw_line(d + Vector2(0, -150), d + Vector2(0, 140), Color("9aa3ab"), 8)
-	Cizim.sekil(self, PackedVector2Array([d + Vector2(-46, -120), d + Vector2(46, -120), d + Vector2(30, 100), d + Vector2(-30, 100)]), Color("9b542c"), 4)
-	for k in 5:
-		draw_line(d + Vector2(-42 + k * 3, -90 + k * 40), d + Vector2(42 - k * 3, -80 + k * 40), Color("6e3618"), 4, true)
+	var ocak := Cizim.doku("doner_ocagi")
+	if ocak:
+		_resim(ocak, Rect2(_mutfak.position.x + 14, _mutfak.position.y + 10, 170, _mutfak.size.y - 24))
+	else:
+		var d := Vector2(_mutfak.position.x + 90, m.y - 20)
+		draw_line(d + Vector2(0, -150), d + Vector2(0, 140), Color("9aa3ab"), 8)
+		Cizim.sekil(self, PackedVector2Array([d + Vector2(-46, -120), d + Vector2(46, -120), d + Vector2(30, 100), d + Vector2(-30, 100)]), Color("9b542c"), 4)
+		for k in 5:
+			draw_line(d + Vector2(-42 + k * 3, -90 + k * 40), d + Vector2(42 - k * 3, -80 + k * 40), Color("6e3618"), 4, true)
 	# ayran kasası (sağ)
 	var a := Vector2(_mutfak.end.x - 100, m.y + 20)
 	_kutu(Rect2(a + Vector2(-60, -20), Vector2(120, 90)), Color("3d8bd6"), 10, 4)
 	for k in 3:
 		Cizim.ciz(self, "ayran", a + Vector2(-36 + k * 36, -38), 20.0)
 	# usta
-	Cizim.kisi(self, m + Vector2(0, -60), 58, Color("f0c49a"), Color("2b1a10"), Color("fdfbf6"), false, true)
+	var usta := Cizim.doku("usta")
+	if usta:
+		_resim(usta, Rect2(m.x - 150, _mutfak.position.y - 70, 300, m.y + 90 - _mutfak.position.y + 70))
+	else:
+		Cizim.kisi(self, m + Vector2(0, -60), 58, Color("f0c49a"), Color("2b1a10"), Color("fdfbf6"), false, true)
 	# mangal: pişen yemekler ve ilerleme halkası
 	var g := _mangal
-	_kutu(g, Color("4a4d52"), 16, 5)
-	draw_rect(Rect2(g.position + Vector2(18, 16), Vector2(g.size.x - 36, 36)), Color("f07a2a"))
-	for k in 6:
-		draw_circle(g.position + Vector2(40 + k * 64, 34), 10, Color("ffc04a"))
-	for k in 5:
-		draw_line(Vector2(g.position.x + 18, g.position.y + 20 + k * 8), Vector2(g.end.x - 18, g.position.y + 20 + k * 8), Color(0.3, 0.3, 0.32, 0.6), 2)
+	var mangal := Cizim.doku("mangal")
+	if mangal:
+		_resim(mangal, g.grow(24))
+	else:
+		_kutu(g, Color("4a4d52"), 16, 5)
+		draw_rect(Rect2(g.position + Vector2(18, 16), Vector2(g.size.x - 36, 36)), Color("f07a2a"))
+		for k in 6:
+			draw_circle(g.position + Vector2(40 + k * 64, 34), 10, Color("ffc04a"))
+		for k in 5:
+			draw_line(Vector2(g.position.x + 18, g.position.y + 20 + k * 8), Vector2(g.end.x - 18, g.position.y + 20 + k * 8), Color(0.3, 0.3, 0.32, 0.6), 2)
 	var pisenler: Array = bolum.d.pisenler
 	for k in mini(4, pisenler.size()):
 		var p: Dictionary = pisenler[k]
@@ -472,7 +506,11 @@ func _musteri(i: int) -> void:
 	var k: int = _kim[i]
 	var olcek := ease(g, 0.5)
 	draw_set_transform(m + Vector2(0, BAS * 2.0 * (1.0 - olcek)), 0.0, Vector2(olcek, olcek))
-	Cizim.kisi(self, Vector2.ZERO, BAS, TEN[k % TEN.size()], SAC[(k * 7 + 3) % SAC.size()], GOMLEK[(k * 5 + 1) % GOMLEK.size()], k % 2 == 0)
+	var resim := Cizim.doku("musteri_%d" % (k % MUSTERI_RESMI + 1))
+	if resim:
+		_resim(resim, Rect2(-BAS * 1.8, -BAS * 1.5, BAS * 3.6, BAS * 4.5))
+	else:
+		Cizim.kisi(self, Vector2.ZERO, BAS, TEN[k % TEN.size()], SAC[(k * 7 + 3) % SAC.size()], GOMLEK[(k * 5 + 1) % GOMLEK.size()], k % 2 == 0)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 

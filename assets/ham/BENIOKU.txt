@@ -1,0 +1,2 @@
+Yapay zekâyla çizdirilen ham resimler buraya konur (docs/GORSEL_REHBERI.md).
+Godot bu klasörü içe aktarmaz; tools/cizim_isle.gd buradan okuyup assets/cizimler/ altına yazar.
