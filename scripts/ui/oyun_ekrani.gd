@@ -59,6 +59,7 @@ func _ready() -> void:
 	fv.variation_embolden = 0.8
 	_font = fv
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	resized.connect(_yerlesim)
 	_panel_kur()
 
@@ -347,9 +348,15 @@ func _draw() -> void:
 		var e := ease(u.t, -2.0)
 		var p: Vector2 = (u.a as Vector2).lerp(u.b, e) + Vector2(0, -sin(u.t * PI) * 70.0)
 		if u.cesit == "malzeme":
-			Cizim.malzeme(self, u.id, p, 40.0 if u.tur == "tepsi" else 30.0)
+			Cizim.malzeme(self, u.id, p, 48.0 if u.tur == "tepsi" else 34.0)
 		else:
-			Cizim.ciz(self, u.id, p, 40.0)
+			Cizim.ciz(self, u.id, p, 44.0)
+
+
+## Nesnenin altına yumuşak, yassı gölge.
+func _golge(m: Vector2, r: float) -> void:
+	draw_colored_polygon(Cizim.elips(m, r, r * 0.3), Color(0.25, 0.12, 0.03, 0.10))
+	draw_colored_polygon(Cizim.elips(m, r * 0.7, r * 0.2), Color(0.25, 0.12, 0.03, 0.10))
 
 
 func _kutu(r: Rect2, renk: Color, yaricap: float, kenar: int = 0, kenar_renk: Color = Cizim.KONTUR) -> void:
@@ -414,12 +421,12 @@ func _bant(t: float) -> void:
 		var y: String = bant[i]
 		if y != "":
 			var p := _slot_konum(i - 1 + t)
-			Cizim.sekil(self, Cizim.elips(p + Vector2(0, 5), 31, 27), Color("fdfbf6"), 2.5)
-			Cizim.ciz(self, y, p, 27.0)
+			_golge(p + Vector2(0, 14), 30.0)
+			Cizim.ciz(self, y, p, 34.0)
 	var kuyruk: Array = bolum.d.kuyruk
 	var giris := _slot_konum(float(ayar.giris_slotu))
 	for j in kuyruk.size():
-		Cizim.ciz(self, kuyruk[j], giris + Vector2(-90 - j * 22, -70), 30.0)
+		Cizim.ciz(self, kuyruk[j], giris + Vector2(-90 - j * 22, -70), 34.0)
 
 
 func _usta() -> void:
@@ -452,7 +459,7 @@ func _usta() -> void:
 		var oran := 1.0 - float(p.kalan) / float(bolum.pisme_adim)
 		draw_circle(yer, 40, Color(0.15, 0.1, 0.08, 0.6))
 		draw_arc(yer, 40, -PI * 0.5, -PI * 0.5 + TAU * oran, 24, Color("ffd54a"), 7, true)
-		Cizim.ciz(self, p.yemek, yer, 30.0)
+		Cizim.ciz(self, p.yemek, yer, 36.0)
 	if pisenler.size() > 4:
 		_yazi(Vector2(g.end.x - 20, g.position.y - 18), "+%d" % (pisenler.size() - 4), 34, Color.WHITE, 6)
 
@@ -482,15 +489,15 @@ func _balon(i: int) -> void:
 	var dik := (m - c).normalized().orthogonal() * 18.0
 	Cizim.sekil(self, PackedVector2Array([c + dik, kuyruk_uc, c - dik]), Color.WHITE, 3.0)
 	Cizim.daire(self, c, 60, Color.WHITE, 4.0)
-	Cizim.ciz(self, kol.yemek, c + Vector2(-6, -6), 38.0)
+	Cizim.ciz(self, kol.yemek, c + Vector2(-4, -6), 46.0)
 	_yazi(c + Vector2(30, 38), str(kol.kalan), 48, KAHVE, 10, Color.WHITE)
 	# tarif ipucu
 	var tarif: Array = _tarifler[kol.yemek]
-	var genis := tarif.size() * 40.0 + 12.0
+	var genis := tarif.size() * 44.0 + 12.0
 	var tr := Rect2(c.x - genis * 0.5, c.y + 64, genis, 46)
 	_kutu(tr, Color(1, 1, 1, 0.92), 23, 3, Color("c89a5a"))
 	for j in tarif.size():
-		Cizim.malzeme(self, tarif[j], Vector2(tr.position.x + 26 + j * 40, tr.get_center().y), 17.0)
+		Cizim.malzeme(self, tarif[j], Vector2(tr.position.x + 28 + j * 44, tr.get_center().y), 21.0)
 
 
 func _ust_bilgi() -> void:
@@ -526,7 +533,8 @@ func _tepsi_ciz() -> void:
 			if u.tur == "tepsi" and int(u.yuva) == i:
 				gizli = true
 		if not gizli:
-			Cizim.malzeme(self, tezgah[i], _tepsi_yuva(i), 40.0)
+			_golge(_tepsi_yuva(i) + Vector2(0, 30), 34.0)
+			Cizim.malzeme(self, tezgah[i], _tepsi_yuva(i), 48.0)
 	if tehlike and bolum.d.sonuc == "":
 		var son := _tepsi_yuva(kap - 1)
 		_yazi(son + Vector2(0, -78), "!", 54, Color("e04a3a"), 8, Color.WHITE)
@@ -553,5 +561,6 @@ func _sutunlar() -> void:
 				break
 			var o: float = 1.0 + 0.2 * _vurus[c] if k == 0 else 1.0
 			draw_set_transform(p, 0.0, Vector2(o, o))
-			Cizim.malzeme(self, s[s.size() - 1 - k], Vector2.ZERO, 44.0)
+			_golge(Vector2(0, 34), 38.0)
+			Cizim.malzeme(self, s[s.size() - 1 - k], Vector2.ZERO, 54.0)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

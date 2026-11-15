@@ -1,8 +1,29 @@
 extends RefCounted
 ## Yemek ve karakter çizimleri. Yalnızca görsel; kural içermez.
-## İlk sürüm için kodla çizilir; ileride Blender'da üretilen simgelerle değiştirilebilir.
+## Yemek ve malzemeler için önce Blender simgesi kullanılır; yoksa kodla çizilir.
 
 const KONTUR := Color("3b2416")
+## Blender simgesinin çizim boyu / istenen yarıçap (nesne simgenin ~%40'ını kaplar).
+const SIMGE_OLCEK := 2.5
+
+static var _dokular := {}
+
+
+## assets/simgeler/<id>.png varsa onu döner (tools/blender/simgeler.py üretir), yoksa null.
+static func doku(id: String) -> Texture2D:
+	if not _dokular.has(id):
+		var yol := "res://assets/simgeler/%s.png" % id
+		_dokular[id] = load(yol) if ResourceLoader.exists(yol) else null
+	return _dokular[id]
+
+
+static func _simge(ci: CanvasItem, id: String, m: Vector2, r: float) -> bool:
+	var t := doku(id)
+	if t == null:
+		return false
+	var boy := r * SIMGE_OLCEK
+	ci.draw_texture_rect(t, Rect2(m - Vector2(boy, boy) * 0.5, Vector2(boy, boy)), false)
+	return true
 
 
 static func elips(m: Vector2, rx: float, ry: float, aci: float = 0.0, n: int = 32) -> PackedVector2Array:
@@ -37,6 +58,8 @@ static func cubuk(ci: CanvasItem, a: Vector2, b: Vector2, kalinlik: float, renk:
 
 ## m merkezli, yaklaşık r yarıçaplı yemek çizer.
 static func ciz(ci: CanvasItem, id: String, m: Vector2, r: float) -> void:
+	if _simge(ci, id, m, r):
+		return
 	var k := maxf(1.5, r * 0.07)
 	match id:
 		"lahmacun": _lahmacun(ci, m, r, k)
@@ -218,6 +241,8 @@ static func kisi(ci: CanvasItem, m: Vector2, s: float, ten: Color, sac: Color, g
 
 ## m merkezli, yaklaşık r yarıçaplı malzeme çizer.
 static func malzeme(ci: CanvasItem, id: String, m: Vector2, r: float) -> void:
+	if _simge(ci, id, m, r):
+		return
 	var k := maxf(1.5, r * 0.07)
 	match id:
 		"hamur":
