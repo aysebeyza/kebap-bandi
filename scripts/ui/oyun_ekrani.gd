@@ -20,6 +20,14 @@ const KAHVE := Color("5a3a22")
 const MUSTERI_RESMI := 8
 ## assets/cizimler/bant.png içinde gri şeridin orta çizgisinin kapladığı alan (resmin oranı olarak).
 const BANT_SERIT := Rect2(0.065, 0.09, 0.87, 0.70)
+## assets/cizimler/usta.png (512x512) içinde maşalı kolun bölgesi, dirsek ve maşa ucu.
+const USTA_KOL := Rect2i(40, 170, 128, 305)
+const USTA_DIRSEK := Vector2(125, 440)
+const USTA_MASA_UCU := Vector2(85, 195)
+## Vuruş: süre (sn), kolun en çok döndüğü açı (radyan), pişerken iki vuruş arası (sn).
+const VURUS_SURE := 0.34
+const VURUS_ACI := 1.05
+const VURUS_ARALIK := 0.75
 
 var veri: Dictionary
 var ayar: Dictionary
@@ -39,6 +47,16 @@ var _kim: Array = []
 var _kim_sayac := 0
 var _vurus: Array = []
 var _font: Font
+var _zaman := 0.0
+var _usta_govde: Texture2D
+var _usta_kol: Texture2D
+var _vurus_t := -1.0
+var _vurus_kivilcim := false
+var _ritim := 0.0
+var _duman_sayac := 0.0
+var _sevinc: Array = []
+## Parçacıklar: {"tur": kivilcim|duman|konfeti|kalp, "p", "v", "t", "omur", "renk", "boy", "aci"}
+var _parcaciklar: Array = []
 
 var _ust := 0.0
 var _tezgah := Rect2()
@@ -66,6 +84,7 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	resized.connect(_yerlesim)
 	_panel_kur()
+	_usta_hazirla()
 
 
 func baslat(no: int) -> void:
@@ -82,7 +101,12 @@ func baslat(no: int) -> void:
 	_birikim = 0.0
 	_sonuc_sure = 0.0
 	_ucanlar.clear()
+	_parcaciklar.clear()
+	_vurus_t = -1.0
 	var n: int = bolum.d.koltuklar.size()
+	_sevinc.clear()
+	for i in n:
+		_sevinc.append(0.0)
 	_gorunum.clear()
 	_kim.clear()
 	for i in n:
@@ -179,6 +203,7 @@ func _process(delta: float) -> void:
 	if bolum == null:
 		return
 	var dt := delta * hiz
+	_canlandir(dt)
 	for u: Dictionary in _ucanlar:
 		u.t += dt / float(u.sure)
 	_ucanlar = _ucanlar.filter(func(u): return u.t < 1.0)
@@ -218,6 +243,8 @@ func _dokun(s: int) -> void:
 	if not bolum.dokun(s):
 		return
 	_vurus[s] = 1.0
+	if not bolum.son_olaylar.is_empty():
+		_vur()
 	_ucan("malzeme", malzeme, _sutun_ust_konum(s), _tepsi_yuva(yuva), 0.18, 0.0, "tepsi", yuva)
 	for o: Dictionary in bolum.son_olaylar:
 		var k: int = bolum.d.pisenler.size() - 1
@@ -235,12 +262,17 @@ func _olaylar(liste: Array) -> void:
 		match o.tur:
 			"alindi":
 				var i := int(o.koltuk)
+				_sevinc[i] = 1.0
+				_parcaciklar.append({"tur": "kalp", "p": _koltuk_bas[i] + Vector2(0, -BAS * 1.2), "v": Vector2(0, -90),
+					"t": 0.0, "omur": 0.9, "renk": Color("ff5a7a"), "boy": 18.0, "aci": 0.0})
 				_ucan("yemek", o.yemek, _slot_konum(float(o.slot)), _koltuk_bas[i] + Vector2(0, BAS * 0.6), 0.25, 0.0, "servis", -1)
 			"oturdu":
 				var i := int(o.koltuk)
 				_kim[i] = _kim_sayac
 				_kim_sayac += 1
 				_gorunum[i] = 0.0
+	if bolum.d.sonuc == "kazandi" and not liste.is_empty():
+		_konfeti()
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -347,6 +379,7 @@ func _draw() -> void:
 	_ust_bilgi()
 	_tepsi_ciz()
 	_sutunlar()
+	_parcacik_ciz(["kalp", "konfeti"])
 	for u: Dictionary in _ucanlar:
 		if u.t < 0.0:
 			continue
@@ -386,12 +419,15 @@ func _yazi(merkez: Vector2, metin: String, boy: int, renk: Color, kontur: int = 
 ## Resmi kutuya en-boy oranını koruyarak yerleştirir: kapla=true taşarak kaplar,
 ## değilse sığdırır ve alt ortaya hizalar.
 func _resim(t: Texture2D, r: Rect2, kapla: bool = false) -> void:
-	var ts := t.get_size()
+	draw_texture_rect(t, _resim_alani(t.get_size(), r, kapla), false)
+
+
+func _resim_alani(ts: Vector2, r: Rect2, kapla: bool = false) -> Rect2:
 	var o := maxf(r.size.x / ts.x, r.size.y / ts.y) if kapla else minf(r.size.x / ts.x, r.size.y / ts.y)
 	var boy := ts * o
 	var konum := Vector2(r.position.x + (r.size.x - boy.x) * 0.5,
 		r.position.y + ((r.size.y - boy.y) * 0.5 if kapla else r.size.y - boy.y))
-	draw_texture_rect(t, Rect2(konum, boy), false)
+	return Rect2(konum, boy)
 
 
 func _arka_plan() -> void:
@@ -477,7 +513,7 @@ func _usta() -> void:
 	# usta
 	var usta := Cizim.doku("usta")
 	if usta:
-		_resim(usta, Rect2(m.x - 150, _mutfak.position.y - 70, 300, m.y + 90 - _mutfak.position.y + 70))
+		_usta_ciz(usta, Rect2(m.x - 150, _mutfak.position.y - 70, 300, m.y + 90 - _mutfak.position.y + 70))
 	else:
 		Cizim.kisi(self, m + Vector2(0, -60), 58, Color("f0c49a"), Color("2b1a10"), Color("fdfbf6"), false, true)
 	# mangal: pişen yemekler ve ilerleme halkası
@@ -502,6 +538,7 @@ func _usta() -> void:
 		Cizim.ciz(self, p.yemek, yer, 36.0)
 	if pisenler.size() > 4:
 		_yazi(Vector2(g.end.x - 20, g.position.y - 18), "+%d" % (pisenler.size() - 4), 34, Color.WHITE, 6)
+	_parcacik_ciz(["duman", "kivilcim"])
 
 
 func _musteri(i: int) -> void:
@@ -511,7 +548,8 @@ func _musteri(i: int) -> void:
 	var m: Vector2 = _koltuk_bas[i]
 	var k: int = _kim[i]
 	var olcek := ease(g, 0.5)
-	draw_set_transform(m + Vector2(0, BAS * 2.0 * (1.0 - olcek)), 0.0, Vector2(olcek, olcek))
+	var ziplama := -sin((1.0 - _sevinc[i]) * PI) * 22.0 if _sevinc[i] > 0.0 else 0.0
+	draw_set_transform(m + Vector2(0, BAS * 2.0 * (1.0 - olcek) + ziplama), 0.0, Vector2(olcek, olcek))
 	var resim := Cizim.doku("musteri_%d" % (k % MUSTERI_RESMI + 1))
 	if resim:
 		_resim(resim, Rect2(-BAS * 1.8, -BAS * 1.5, BAS * 3.6, BAS * 4.5))
@@ -609,3 +647,150 @@ func _sutunlar() -> void:
 			_golge(Vector2(0, 34), 38.0)
 			Cizim.malzeme(self, s[s.size() - 1 - k], Vector2.ZERO, 54.0)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+# --- Canlandırma: usta, parçacıklar, müşteri sevinci ------------------------
+
+## Usta resmini gövde ve maşalı kol olarak ikiye ayırır (kol dirsekten döner).
+func _usta_hazirla() -> void:
+	var t := Cizim.doku("usta")
+	if t == null:
+		return
+	var img := t.get_image()
+	if img.is_compressed():
+		img.decompress()
+	img.clear_mipmaps()
+	img.convert(Image.FORMAT_RGBA8)
+	if img.get_size() != Vector2i(512, 512):
+		img.resize(512, 512, Image.INTERPOLATE_LANCZOS)
+	var kol := img.get_region(USTA_KOL)
+	var govde := img.duplicate()
+	govde.fill_rect(USTA_KOL, Color(0, 0, 0, 0))
+	kol.generate_mipmaps()
+	govde.generate_mipmaps()
+	_usta_kol = ImageTexture.create_from_image(kol)
+	_usta_govde = ImageTexture.create_from_image(govde)
+
+
+func _usta_ciz(usta: Texture2D, kutu: Rect2) -> void:
+	var r := _resim_alani(usta.get_size(), kutu)
+	if _usta_govde == null:
+		draw_texture_rect(usta, r, false)
+		return
+	var o := r.size.x / 512.0
+	var vurus := _vurus_egrisi()
+	var dy := sin(_zaman * 2.2) * 3.0 + vurus * 10.0
+	draw_texture_rect(_usta_govde, Rect2(r.position + Vector2(0, dy), r.size), false)
+	var dirsek := r.position + USTA_DIRSEK * o + Vector2(0, dy)
+	var aci := sin(_zaman * 1.7) * 0.05 + vurus * VURUS_ACI
+	draw_set_transform(dirsek, aci, Vector2(o, o))
+	draw_texture_rect(_usta_kol, Rect2(Vector2(USTA_KOL.position) - USTA_DIRSEK, Vector2(USTA_KOL.size)), false)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## 0 (dinlenme) → 1 (maşa mangalda) → 0. Hızlı iniş, yavaş kalkış.
+func _vurus_egrisi() -> float:
+	if _vurus_t < 0.0:
+		return 0.0
+	var p := _vurus_t / VURUS_SURE
+	return ease(p / 0.4, 0.5) if p < 0.4 else 1.0 - ease((p - 0.4) / 0.6, 2.0)
+
+
+func _vur() -> void:
+	if _vurus_t < 0.0 or _vurus_t > VURUS_SURE * 0.6:
+		_vurus_t = 0.0
+		_vurus_kivilcim = false
+		_ritim = 0.0
+
+
+## Maşa ucunun ekrandaki yeri (kıvılcım çıkacak nokta).
+func _masa_ucu() -> Vector2:
+	var usta := Cizim.doku("usta")
+	var m := _mutfak.get_center()
+	var r := _resim_alani(usta.get_size(), Rect2(m.x - 150, _mutfak.position.y - 70, 300, m.y + 90 - _mutfak.position.y + 70))
+	var o := r.size.x / 512.0
+	var dirsek := r.position + USTA_DIRSEK * o
+	return dirsek + ((USTA_MASA_UCU - USTA_DIRSEK) * o).rotated(VURUS_ACI)
+
+
+func _canlandir(dt: float) -> void:
+	_zaman += dt
+	if _vurus_t >= 0.0:
+		_vurus_t += dt
+		if not _vurus_kivilcim and _vurus_t >= VURUS_SURE * 0.4:
+			_vurus_kivilcim = true
+			if _usta_govde:
+				_kivilcim(_masa_ucu())
+		if _vurus_t > VURUS_SURE:
+			_vurus_t = -1.0
+	var pisiyor: bool = bolum != null and not bolum.d.pisenler.is_empty()
+	if pisiyor:
+		_ritim += dt
+		if _ritim > VURUS_ARALIK:
+			_vur()
+		_duman_sayac += dt
+		while _duman_sayac > 0.12:
+			_duman_sayac -= 0.12
+			var x := randf_range(_mangal.position.x + 60, _mangal.end.x - 60)
+			_parcaciklar.append({"tur": "duman", "p": Vector2(x, _mangal.position.y + 10), "v": Vector2(randf_range(-12, 12), -70),
+				"t": 0.0, "omur": 1.4, "renk": Color(0.85, 0.85, 0.85), "boy": randf_range(12, 20), "aci": 0.0})
+	for i in _sevinc.size():
+		_sevinc[i] = maxf(0.0, _sevinc[i] - dt * 2.2)
+	for q: Dictionary in _parcaciklar:
+		q.t += dt
+		var v: Vector2 = q.v
+		match q.tur:
+			"kivilcim":
+				v.y += 900.0 * dt
+			"konfeti":
+				v.y = minf(v.y + 300.0 * dt, 260.0)
+				v.x += sin(q.t * 6.0 + q.aci) * 40.0 * dt
+				q.aci += dt * 5.0
+			"duman":
+				v *= 0.98
+		q.v = v
+		q.p += v * dt
+	_parcaciklar = _parcaciklar.filter(func(q): return q.t < q.omur)
+
+
+func _kivilcim(m: Vector2) -> void:
+	for k in 12:
+		var a := randf_range(-PI * 0.95, -PI * 0.05)
+		var hiz_ := randf_range(180, 420)
+		_parcaciklar.append({"tur": "kivilcim", "p": m, "v": Vector2(cos(a), sin(a)) * hiz_, "t": 0.0,
+			"omur": randf_range(0.3, 0.55), "renk": [Color("ffd54a"), Color("ff9a2a"), Color("fff1a8")][k % 3],
+			"boy": randf_range(3.0, 6.0), "aci": 0.0})
+
+
+func _konfeti() -> void:
+	var renkler := [Color("e94f6a"), Color("ffd54a"), Color("4caf50"), Color("3d8bd6"), Color("ff9a2a"), Color("8e6bd1")]
+	for k in 90:
+		_parcaciklar.append({"tur": "konfeti", "p": Vector2(randf_range(0, size.x), randf_range(-200, 0)),
+			"v": Vector2(randf_range(-60, 60), randf_range(80, 220)), "t": 0.0, "omur": randf_range(2.2, 3.2),
+			"renk": renkler[k % renkler.size()], "boy": randf_range(10, 18), "aci": randf_range(0, TAU)})
+
+
+func _parcacik_ciz(turler: Array) -> void:
+	for q: Dictionary in _parcaciklar:
+		if not (q.tur in turler):
+			continue
+		var oran: float = q.t / q.omur
+		var renk: Color = q.renk
+		match q.tur:
+			"kivilcim":
+				renk.a = 1.0 - oran
+				draw_circle(q.p, q.boy * (1.0 - oran * 0.5), renk)
+			"duman":
+				renk.a = 0.35 * (1.0 - oran)
+				draw_circle(q.p, q.boy * (1.0 + oran * 2.0), renk)
+			"konfeti":
+				draw_set_transform(q.p, q.aci, Vector2(1, absf(cos(q.aci * 1.3)) * 0.8 + 0.2))
+				draw_rect(Rect2(-q.boy * 0.5, -q.boy * 0.3, q.boy, q.boy * 0.6), renk)
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			"kalp":
+				renk.a = 1.0 - oran
+				var b: float = q.boy * (0.8 + 0.4 * minf(1.0, oran * 4.0))
+				var p: Vector2 = q.p
+				draw_circle(p + Vector2(-b * 0.5, 0), b * 0.55, renk)
+				draw_circle(p + Vector2(b * 0.5, 0), b * 0.55, renk)
+				draw_colored_polygon(PackedVector2Array([p + Vector2(-b * 1.02, b * 0.15), p + Vector2(b * 1.02, b * 0.15), p + Vector2(0, b * 1.2)]), renk)
