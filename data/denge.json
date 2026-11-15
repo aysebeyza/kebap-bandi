@@ -5,8 +5,31 @@
   "bant": {
     "slot_sayisi": 48,
     "giris_slotu": 0,
-    "koltuk_slotlari": [5, 19, 29, 43],
+    "koltuk_slotlari": [
+      5,
+      19,
+      29,
+      43
+    ],
     "musteri_gelis_adim": 6,
     "adim_suresi": 0.25
+  },
+  "ekonomi": {
+    "baslangic_altin": 100,
+    "odul_cubugu": [
+      20,
+      30,
+      40,
+      30,
+      20
+    ],
+    "cubuk_hizi": 1.4,
+    "yuva_bedeli": [
+      50,
+      100,
+      200
+    ],
+    "reklam_yuva_hakki": 1,
+    "reklam_carpani": 2
   }
 }

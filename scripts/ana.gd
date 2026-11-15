@@ -7,8 +7,10 @@ extends Node
 ##   --hiz=<x>               zaman çarpanı
 ##   --duman=<n>             (--oto ile) n bölüm bitince "DUMAN TAMAM" yazıp çıkar
 ##   --ekran=<dosya.png> --bekle=<saniye>   ekran görüntüsü alıp çıkar
+##   --panel=<doldu|kazanc|kayip>  pencereyi doğrudan açar (doldu: tezgâh gerçekten doldurulur)
 
 const OyunEkrani = preload("res://scripts/ui/oyun_ekrani.gd")
+const OtoOyuncu = preload("res://scripts/core/oto_oyuncu.gd")
 
 var _biten := 0
 
@@ -22,6 +24,9 @@ func _ready() -> void:
 	ekran.hiz = float(arg.get("hiz", "1"))
 	ekran.bolum_bitti.connect(_bolum_bitti.bind(int(arg.get("duman", "0"))))
 	ekran.baslat(int(arg.get("bolum", str(Oyun.bolum))))
+	if arg.has("panel"):
+		await get_tree().create_timer(0.5).timeout
+		_panel_ac(ekran, str(arg.panel))
 
 	if arg.has("ekran"):
 		await get_tree().create_timer(float(arg.get("bekle", "2"))).timeout
@@ -40,6 +45,37 @@ func _bolum_bitti(no: int, kazandi: bool, duman: int) -> void:
 	if duman > 0 and _biten >= duman:
 		print("DUMAN TAMAM")
 		get_tree().quit()
+
+
+func _panel_ac(ekran, tur: String) -> void:
+	match tur:
+		"doldu":
+			# Her seferinde en işe yaramaz malzemeyi seç ki tezgâh dolsun.
+			var b = ekran.bolum
+			var deneme := 0
+			while b.d.sonuc == "" and deneme < 200:
+				deneme += 1
+				var liste := OtoOyuncu._gereken_yemekler(b)
+				var eksik := []
+				for y: String in liste:
+					eksik.append(b.eksikler(y, b.d.tezgah))
+				var en_kotu: int = -1
+				var en_puan: int = -1000000
+				for s: int in b.d.sutunlar.size():
+					if not b.d.sutunlar[s].is_empty():
+						var puan: int = OtoOyuncu._puan(b.d.sutunlar[s].back(), eksik)
+						if puan > en_puan:
+							en_puan = puan
+							en_kotu = s
+				if en_kotu < 0:
+					break
+				ekran._dokun(en_kotu)
+		"kazanc":
+			ekran._kazanc_paneli()
+			ekran._panel.show()
+		"kayip":
+			ekran._kayip_paneli()
+			ekran._panel.show()
 
 
 func _argumanlar() -> Dictionary:

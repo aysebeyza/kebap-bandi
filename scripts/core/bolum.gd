@@ -3,9 +3,13 @@ extends RefCounted
 ##
 ## Sütuna dokununca en üstteki malzeme tezgâha gider. Tezgâhtaki malzemeler hâlâ
 ## gereken bir yemeğin tarifini tamamlarsa usta onları alır ve pişirir; pişen yemek
-## banda konur, isteyen müşteri önünden geçerken alır. Tezgâh dolarsa bölüm kaybedilir.
+## banda konur, isteyen müşteri önünden geçerken alır.
+## Tezgâh dolarsa oyun durur (sonuc = "doldu"): altınla ya da reklamla bir yuva açılıp
+## devam edilir, ya da vazgeçilir (sonuc = "kaybetti").
 ##
 ## Arayüz yalnızca dokun() ve adim_at() çağırır, dönen olaylarla animasyon oynatır.
+
+const Ekonomi = preload("res://scripts/core/ekonomi.gd")
 
 const BOS := ""
 const UZAK := 1 << 20
@@ -59,6 +63,8 @@ func _init(seviye: Dictionary, denge: Dictionary, tarif_listesi: Dictionary) -> 
 		"adim": 0,
 		"sonuc": "",
 		"kapasite": int(seviye.get("tezgah", denge.tezgah_kapasite)),
+		"acilan_altin": 0,
+		"acilan_reklam": 0,
 	}
 	for i in (ayar.koltuk_slotlari as Array).size():
 		d.koltuklar.append({"yemek": BOS, "kalan": 0, "bekleme": 0})
@@ -76,8 +82,50 @@ func dokun(sutun: int) -> bool:
 	d.tezgah.append(s.pop_back())
 	son_olaylar = _pisir()
 	if d.tezgah.size() >= d.kapasite:
-		d.sonuc = "kaybetti"
+		d.sonuc = "doldu"
 	return true
+
+
+## Tezgâh doluyken altınla bir yuva açılabilir mi; açılabiliyorsa bedeli, değilse -1.
+func yuva_bedeli(ekonomi: Dictionary) -> int:
+	if d.sonuc != "doldu":
+		return -1
+	return Ekonomi.yuva_bedeli(ekonomi, int(d.acilan_altin))
+
+
+## Altını oyuncunun durumundan düşüp bir yuva açar ve oyunu sürdürür.
+func yuva_ac_altinla(oyuncu: Dictionary, ekonomi: Dictionary) -> bool:
+	var bedel := yuva_bedeli(ekonomi)
+	if bedel < 0 or not Ekonomi.harca(oyuncu, bedel):
+		return false
+	d.acilan_altin += 1
+	_yuva_ekle()
+	return true
+
+
+## Reklam hakkı kaldı mı (bölüm başına sınırlı).
+func reklam_hakki_var(ekonomi: Dictionary) -> bool:
+	return d.sonuc == "doldu" and int(d.acilan_reklam) < int(ekonomi.reklam_yuva_hakki)
+
+
+## Reklam izlendikten sonra çağrılır: bir yuva açar ve oyunu sürdürür.
+func yuva_ac_reklamla(ekonomi: Dictionary) -> bool:
+	if not reklam_hakki_var(ekonomi):
+		return false
+	d.acilan_reklam += 1
+	_yuva_ekle()
+	return true
+
+
+## Tezgâh doluyken vazgeçmek: bölüm kaybedilir.
+func pes_et() -> void:
+	if d.sonuc == "doldu":
+		d.sonuc = "kaybetti"
+
+
+func _yuva_ekle() -> void:
+	d.kapasite += 1
+	d.sonuc = ""
 
 
 ## Bir adım: bant döner, mangal pişirir, pişen banda girer, müşteriler alır.

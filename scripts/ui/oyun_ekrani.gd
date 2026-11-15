@@ -7,6 +7,7 @@ const Bolum = preload("res://scripts/core/bolum.gd")
 const OtoOyuncu = preload("res://scripts/core/oto_oyuncu.gd")
 const Uretici = preload("res://scripts/core/uretici.gd")
 const Cizim = preload("res://scripts/ui/cizim.gd")
+const OdulCubugu = preload("res://scripts/ui/odul_cubugu.gd")
 
 signal bolum_bitti(no: int, kazandi: bool)
 
@@ -70,7 +71,11 @@ var _koltuk_bas: Array = []
 var _panel: Control
 var _panel_baslik: Label
 var _panel_alt: Label
-var _panel_dugme: Button
+var _panel_ek: VBoxContainer
+var _panel_dugmeler: VBoxContainer
+var _panel_tur := ""
+var _cubuk = null
+var _kazanilan := 0
 
 
 func _ready() -> void:
@@ -225,12 +230,13 @@ func _process(delta: float) -> void:
 			_olaylar(bolum.adim_at())
 	elif not _panel.visible:
 		_sonuc_sure += delta
-		if _sonuc_sure > 0.8:
+		if _sonuc_sure > (0.35 if bolum.d.sonuc == "doldu" else 0.8):
 			_paneli_ac()
 	elif oto:
 		_sonuc_sure += delta
-		if _sonuc_sure > 1.0:
-			_devam()
+		if _sonuc_sure > 0.6:
+			_sonuc_sure = 0.0
+			_oto_sec()
 	queue_redraw()
 
 
@@ -320,19 +326,12 @@ func _panel_kur() -> void:
 	_panel_alt = _etiket(46)
 	dikey.add_child(_panel_baslik)
 	dikey.add_child(_panel_alt)
-	_panel_dugme = Button.new()
-	_panel_dugme.custom_minimum_size = Vector2(0, 140)
-	_panel_dugme.add_theme_font_override("font", _font)
-	_panel_dugme.add_theme_font_size_override("font_size", 58)
-	for durum in ["normal", "hover", "pressed", "focus"]:
-		var d := StyleBoxFlat.new()
-		d.bg_color = Color("4caf50") if durum != "pressed" else Color("3d8f40")
-		d.set_corner_radius_all(30)
-		d.set_border_width_all(6)
-		d.border_color = Color("2e6b31")
-		_panel_dugme.add_theme_stylebox_override(durum, d)
-	_panel_dugme.pressed.connect(_devam)
-	dikey.add_child(_panel_dugme)
+	_panel_ek = VBoxContainer.new()
+	_panel_ek.alignment = BoxContainer.ALIGNMENT_CENTER
+	dikey.add_child(_panel_ek)
+	_panel_dugmeler = VBoxContainer.new()
+	_panel_dugmeler.add_theme_constant_override("separation", 22)
+	dikey.add_child(_panel_dugmeler)
 	_panel.hide()
 
 
@@ -345,18 +344,152 @@ func _etiket(boy: int) -> Label:
 	return l
 
 
+const DUGME_RENK := {
+	"yesil": [Color("4caf50"), Color("2e6b31")],
+	"sari": [Color("f2b33d"), Color("a8701a")],
+	"mavi": [Color("3d8bd6"), Color("22548a")],
+	"gri": [Color("a89a8a"), Color("6e6255")],
+}
+
+
+## Pencerenin düğmelerini kurar: her biri [metin, renk, çağrı, etkin].
+func _dugmeler(liste: Array) -> void:
+	for c in _panel_dugmeler.get_children():
+		_panel_dugmeler.remove_child(c)
+		c.queue_free()
+	for d: Array in liste:
+		var b := Button.new()
+		b.text = d[0]
+		b.disabled = d.size() > 3 and not d[3]
+		b.custom_minimum_size = Vector2(0, 124)
+		b.add_theme_font_override("font", _font)
+		b.add_theme_font_size_override("font_size", 50)
+		b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.6))
+		var renk: Array = DUGME_RENK[d[1]]
+		for durum in ["normal", "hover", "pressed", "focus", "disabled"]:
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = renk[0].darkened(0.15) if durum == "pressed" else renk[0]
+			if durum == "disabled":
+				sb.bg_color = Color("c9bfb3")
+			sb.set_corner_radius_all(30)
+			sb.set_border_width_all(6)
+			sb.border_color = renk[1] if durum != "disabled" else Color("a39889")
+			b.add_theme_stylebox_override(durum, sb)
+		var cagri: Callable = d[2]
+		b.pressed.connect(func(): cagri.call_deferred())
+		_panel_dugmeler.add_child(b)
+
+
+func _ek_temizle() -> void:
+	for c in _panel_ek.get_children():
+		_panel_ek.remove_child(c)
+		c.queue_free()
+	_cubuk = null
+
+
 func _paneli_ac() -> void:
-	var kazandi: bool = bolum.d.sonuc == "kazandi"
-	_panel_baslik.text = "Afiyet olsun!" if kazandi else "Tezgâh doldu!"
-	_panel_alt.text = ("Bölüm %d tamamlandı" if kazandi else "Bölüm %d — tekrar dene") % bolum_no
-	_panel_dugme.text = "Sonraki bölüm" if kazandi else "Tekrar"
 	_sonuc_sure = 0.0
+	_ek_temizle()
+	match bolum.d.sonuc:
+		"doldu":
+			_doldu_paneli()
+		"kazandi":
+			_kazanc_paneli()
+			bolum_bitti.emit(bolum_no, true)
+		_:
+			_kayip_paneli()
+			bolum_bitti.emit(bolum_no, false)
 	_panel.show()
-	bolum_bitti.emit(bolum_no, kazandi)
 
 
-func _devam() -> void:
-	baslat(bolum_no + 1 if bolum.d.sonuc == "kazandi" else bolum_no)
+## Tezgâh doldu: altınla ya da reklamla bir yuva aç, ya da vazgeç.
+func _doldu_paneli() -> void:
+	_panel_tur = "doldu"
+	_panel_baslik.text = "Tezgâh doldu!"
+	_panel_alt.text = "Bir yuva aç ve devam et"
+	var liste := []
+	var bedel: int = bolum.yuva_bedeli(Oyun.ekonomi)
+	if bedel >= 0:
+		liste.append(["%d altınla yuva aç" % bedel, "sari", _altinla_ac, Oyun.altin >= bedel])
+	liste.append(["Reklam izle, yuva aç", "mavi", _reklamla_ac, bolum.reklam_hakki_var(Oyun.ekonomi) and Reklam.hazir_mi()])
+	liste.append(["Vazgeç", "gri", _vazgec, true])
+	_dugmeler(liste)
+
+
+func _altinla_ac() -> void:
+	if bolum.yuva_ac_altinla(Oyun.durum, Oyun.ekonomi):
+		Oyun.altin_harcandi()
+		_devam_et()
+
+
+func _reklamla_ac() -> void:
+	Reklam.odullu_goster(func(izlendi: bool):
+		if izlendi and bolum.yuva_ac_reklamla(Oyun.ekonomi):
+			_devam_et())
+
+
+func _devam_et() -> void:
+	_panel.hide()
+	_sonuc_sure = 0.0
+
+
+func _vazgec() -> void:
+	bolum.pes_et()
+	_paneli_ac()
+
+
+## Kazanınca: ödül çubuğu → durdur → al ya da reklamla katla.
+func _kazanc_paneli() -> void:
+	_panel_tur = "cubuk"
+	_panel_baslik.text = "Afiyet olsun!"
+	_panel_alt.text = "Bölüm %d tamamlandı" % bolum_no
+	_cubuk = OdulCubugu.new()
+	_cubuk.ayar = Oyun.ekonomi
+	_cubuk.font = _font
+	_panel_ek.add_child(_cubuk)
+	_dugmeler([["Durdur!", "yesil", _cubugu_durdur]])
+
+
+func _cubugu_durdur() -> void:
+	if _cubuk == null or not _cubuk.calisiyor:
+		return
+	_kazanilan = _cubuk.durdur()
+	_panel_tur = "odul"
+	_panel_alt.text = "+%d altın kazandın!" % _kazanilan
+	var kat := int(Oyun.ekonomi.reklam_carpani)
+	_dugmeler([
+		["%d altın al" % _kazanilan, "yesil", _odulu_al.bind(1)],
+		["Reklam izle, %d altın al" % (_kazanilan * kat), "mavi", _reklamla_katla, Reklam.hazir_mi()],
+	])
+
+
+func _odulu_al(kat: int) -> void:
+	if _panel_tur != "odul":
+		return
+	_panel_tur = ""
+	Oyun.altin_ekle(_kazanilan * kat)
+	baslat(bolum_no + 1)
+
+
+func _reklamla_katla() -> void:
+	Reklam.odullu_goster(func(izlendi: bool):
+		_odulu_al(int(Oyun.ekonomi.reklam_carpani) if izlendi else 1))
+
+
+func _kayip_paneli() -> void:
+	_panel_tur = "kayip"
+	_panel_baslik.text = "Yandın!"
+	_panel_alt.text = "Bölüm %d — tekrar dene" % bolum_no
+	_dugmeler([["Tekrar", "yesil", baslat.bind(bolum_no)]])
+
+
+## Otomatik oyuncu (duman testi): penceredeki ilk etkin düğmeye basar.
+func _oto_sec() -> void:
+	for c in _panel_dugmeler.get_children():
+		var b := c as Button
+		if b and not b.disabled:
+			b.pressed.emit()
+			return
 
 
 # --- Çizim ---------------------------------------------------------------
@@ -592,6 +725,14 @@ func _ust_bilgi() -> void:
 	draw_polyline(PackedVector2Array([o + Vector2(-28, 0), o + Vector2(-8, 22), o + Vector2(30, -24)]), Color("2e7d32"), 22, true)
 	draw_polyline(PackedVector2Array([o + Vector2(-28, 0), o + Vector2(-8, 22), o + Vector2(30, -24)]), Color("57c84d"), 14, true)
 	_yazi(Vector2(cx + 50, r.get_center().y), "%d / %d" % [bolum.d.servis, bolum.d.toplam], 56, Color.WHITE, 8, Color(0.25, 0.15, 0.08))
+	var ar := Rect2(cx - 100, _ust + 150, 200, 64)
+	_kutu(ar, Color(0.35, 0.22, 0.12, 0.8), 32)
+	var para := ar.position + Vector2(34, 32)
+	draw_circle(para, 26, Color("8a5a12"))
+	draw_circle(para, 22, Color("f6c33b"))
+	draw_circle(para, 14, Color("e0a422"))
+	draw_circle(para + Vector2(-6, -7), 5, Color(1, 1, 1, 0.7))
+	_yazi(Vector2(ar.position.x + 120, ar.get_center().y), str(Oyun.altin), 40, Color.WHITE, 6, Color(0.25, 0.15, 0.08))
 	_kutu(Rect2(24, _ust + 12, 190, 52), Color(0.35, 0.22, 0.12, 0.8), 26)
 	_yazi(Vector2(119, _ust + 36), "Bölüm %d" % bolum_no, 34, Color.WHITE)
 

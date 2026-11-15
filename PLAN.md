@@ -28,6 +28,11 @@ Oynanış mantığı türdeki örnek oyunla aynıdır. Tema, yemekler, karakterl
 - **Kazanma:** tüm siparişler servis edilir.
 - **Kaybetme (yanma):** tezgâhın tüm yuvaları dolar.
 
+### Altın ve reklam (sahibinin isteği)
+- Oyuncunun altını vardır; kayıtta tutulur.
+- Tezgâh dolunca bölüm hemen bitmez, oyun durur. Üç seçenek: altınla bir yuva aç, reklam izleyip bir yuva aç ya da vazgeç (yan).
+- Bölüm kazanılınca ödül çubuğu çıkar: gösterge 20-30-40-30-20 dilimleri üzerinde gidip gelir; "Durdur"a basınca göstergenin altındaki dilim kadar altın kazanılır.
+
 ## Açık konular (varsayılanları docs/GDD.md içinde)
 - Bölüm sayısı ve zorluk eğrisi
 - Yıldız / ödül sistemi ve bölümler arası ilerleme (restoran süsleme?)

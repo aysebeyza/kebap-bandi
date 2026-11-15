@@ -40,6 +40,17 @@ Kesinleşen kurallar [PLAN.md](../PLAN.md) içindedir. Bu dosya ayrıntıları v
 - *Onay bekleyen varsayılan:* Bölüm kazanılınca "Afiyet olsun!" çıkar ve sonraki bölüme geçilir. Kaybedilince "Tezgâh doldu!" çıkar ve bölüm tekrar oynanır. Kayıt yalnızca ulaşılan bölümü tutar.
 - *Onay bekleyen varsayılan:* 30. bölümden sonra son bölümün ayarları yeni tohumlarla sonsuza kadar sürer.
 
+## Altın ve reklam
+
+Ayarlar `data/denge.json → ekonomi`, kurallar `scripts/core/ekonomi.gd` ve `scripts/core/bolum.gd`.
+- *Onay bekleyen varsayılan:* Başlangıç altını 100.
+- *Onay bekleyen varsayılan:* Altınla yuva bedeli bir bölümde sırayla 50, 100, 200; üçten sonra altınla açılamaz.
+- *Onay bekleyen varsayılan:* Reklamla yuva bir bölümde 1 kez.
+- *Onay bekleyen varsayılan:* Ödül çubuğundan sonra "Reklam izle" ile kazanılan altın 2 katına çıkar.
+- Ödül çubuğu saniyede 1,4 uç-uç geçiş hızıyla gidip gelir (`cubuk_hizi`).
+- Reklam hizmeti `scripts/reklam.gd` (otomatik yüklenen `Reklam`). Gerçek reklam ağı bağlanana kadar 3 sn'lik deneme reklamı gösterir. Gerçek ağ (ör. AdMob) için bir hesap, Godot Android eklentisi ve yayın imzası gerekir; yalnızca `odullu_goster()` içi değişir.
+- Altın şimdilik yalnızca yuva açmaya harcanır.
+
 ## Henüz karar verilmeyenler (sonraki aşamalar)
 
 - Yıldızlar ve bahşiş (*varsayılan önerisi:* tezgâhın en yüksek doluluğuna göre 1–3 yıldız)

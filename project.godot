@@ -11,6 +11,7 @@ config/features=PackedStringArray("4.7", "Mobile")
 [autoload]
 
 Oyun="*res://scripts/oyun.gd"
+Reklam="*res://scripts/reklam.gd"
 
 [display]
 

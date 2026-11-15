@@ -7,6 +7,7 @@ const Veri = preload("res://scripts/core/veri.gd")
 const Bolum = preload("res://scripts/core/bolum.gd")
 const OtoOyuncu = preload("res://scripts/core/oto_oyuncu.gd")
 const Uretici = preload("res://scripts/core/uretici.gd")
+const Ekonomi = preload("res://scripts/core/ekonomi.gd")
 
 var veri: Dictionary
 var hata_sayisi := 0
@@ -146,8 +147,11 @@ func test_tezgah_dolunca_kaybeder() -> void:
 	b.dokun(0)
 	esit(b.d.sonuc, "", "tezgâh dolmadan oyun sürer")
 	b.dokun(0)
-	esit(b.d.sonuc, "kaybetti", "tezgâh dolunca kaybedilir")
-	bekle(not b.dokun(0), "bitmiş bölümde dokunma reddedilir")
+	esit(b.d.sonuc, "doldu", "tezgâh dolunca oyun durur")
+	bekle(not b.dokun(0), "tezgâh doluyken dokunma reddedilir")
+	esit(b.adim_at(), [], "tezgâh doluyken bant durur")
+	b.pes_et()
+	esit(b.d.sonuc, "kaybetti", "vazgeçince kaybedilir")
 
 
 func test_son_yuvada_tarif_tamamlanirsa_kaybetmez() -> void:
@@ -208,3 +212,102 @@ func test_tum_bolumler_cozulebilir() -> void:
 	for p: Dictionary in veri.bolumler:
 		var sev := Uretici.uret(p, veri)
 		bekle(not sev.is_empty(), "bölüm %d çözülebilir üretilmeli" % int(p.no))
+
+
+# --- Ekonomi -------------------------------------------------------------
+
+func ekonomi_ayar() -> Dictionary:
+	return {"baslangic_altin": 100, "odul_cubugu": [20, 30, 40, 30, 20], "cubuk_hizi": 1.0,
+		"yuva_bedeli": [50, 100], "reklam_yuva_hakki": 1, "reklam_carpani": 2}
+
+
+func dolu_bolum():
+	var ayar := kucuk_ayar()
+	ayar.tezgah_kapasite = 2
+	var b = yeni([["hamur", "kiyma", "peynir", "yogurt"]], [{"yemek": "lahmacun", "adet": 1}], ayar)
+	b.dokun(0)
+	b.dokun(0)
+	return b
+
+
+func test_odul_cubugu_dilimleri() -> void:
+	var e := ekonomi_ayar()
+	esit(Ekonomi.cubuk_odulu(e, 0.0), 20, "sol uç 20")
+	esit(Ekonomi.cubuk_odulu(e, 0.3), 30, "ikinci dilim 30")
+	esit(Ekonomi.cubuk_odulu(e, 0.5), 40, "orta 40")
+	esit(Ekonomi.cubuk_odulu(e, 0.7), 30, "dördüncü dilim 30")
+	esit(Ekonomi.cubuk_odulu(e, 1.0), 20, "sağ uç 20")
+
+
+func test_odul_cubugu_gidip_gelir() -> void:
+	var e := ekonomi_ayar()
+	esit(Ekonomi.cubuk_konumu(e, 0.0), 0.0, "başta sol uçta")
+	esit(Ekonomi.cubuk_konumu(e, 0.5), 0.5, "yarım saniyede ortada")
+	esit(Ekonomi.cubuk_konumu(e, 1.0), 1.0, "bir saniyede sağ uçta")
+	esit(Ekonomi.cubuk_konumu(e, 1.25), 0.75, "sonra geri döner")
+
+
+func test_altin_harcama() -> void:
+	var durum := {}
+	Ekonomi.kur(durum, ekonomi_ayar())
+	esit(durum.altin, 100, "başlangıç altını")
+	bekle(Ekonomi.harca(durum, 60), "yeterli altın harcanır")
+	esit(durum.altin, 40, "kalan altın")
+	bekle(not Ekonomi.harca(durum, 50), "yetmeyen altın harcanmaz")
+	esit(durum.altin, 40, "başarısız harcama altını değiştirmez")
+	Ekonomi.ekle(durum, 30)
+	esit(durum.altin, 70, "altın eklenir")
+
+
+func test_eski_kayit_altinla_tamamlanir() -> void:
+	var durum := {"bolum": 7}
+	Ekonomi.kur(durum, ekonomi_ayar())
+	esit(durum.altin, 100, "altını olmayan eski kayda başlangıç altını verilir")
+	esit(durum.bolum, 7, "eski alan korunur")
+	durum.altin = 5
+	Ekonomi.kur(durum, ekonomi_ayar())
+	esit(durum.altin, 5, "var olan altın değişmez")
+
+
+func test_altinla_yuva_acilir() -> void:
+	var e := ekonomi_ayar()
+	var oyuncu := {"altin": 120}
+	var b = dolu_bolum()
+	esit(b.d.sonuc, "doldu", "tezgâh doldu")
+	esit(b.yuva_bedeli(e), 50, "ilk yuva bedeli")
+	bekle(b.yuva_ac_altinla(oyuncu, e), "altınla yuva açılır")
+	esit(oyuncu.altin, 70, "bedel düşülür")
+	esit(b.d.kapasite, 3, "tezgâh bir yuva büyür")
+	esit(b.d.sonuc, "", "oyun sürer")
+	b.dokun(0)
+	esit(b.d.sonuc, "doldu", "yeniden dolabilir")
+	esit(b.yuva_bedeli(e), 100, "ikinci yuva daha pahalı")
+	bekle(not b.yuva_ac_altinla(oyuncu, e), "altın yetmezse açılmaz")
+	esit(oyuncu.altin, 70, "yetmeyince altın düşmez")
+	esit(b.d.sonuc, "doldu", "oyun durmaya devam eder")
+
+
+func test_reklamla_yuva_bolum_basina_bir_kez() -> void:
+	var e := ekonomi_ayar()
+	var b = dolu_bolum()
+	bekle(b.reklam_hakki_var(e), "ilk dolmada reklam hakkı var")
+	bekle(b.yuva_ac_reklamla(e), "reklamla yuva açılır")
+	esit(b.d.sonuc, "", "oyun sürer")
+	b.dokun(0)
+	bekle(not b.reklam_hakki_var(e), "aynı bölümde ikinci reklam hakkı yok")
+	bekle(not b.yuva_ac_reklamla(e), "reklamla ikinci yuva açılmaz")
+
+
+func test_altin_yuva_siniri() -> void:
+	var e := ekonomi_ayar()
+	e.yuva_bedeli = [10]
+	var oyuncu := {"altin": 1000}
+	var ayar := kucuk_ayar()
+	ayar.tezgah_kapasite = 1
+	var b = yeni([["hamur", "kiyma", "peynir", "yogurt"]], [{"yemek": "lahmacun", "adet": 1}], ayar)
+	b.dokun(0)
+	bekle(b.yuva_ac_altinla(oyuncu, e), "listedeki ilk yuva açılır")
+	b.dokun(0)
+	esit(b.d.sonuc, "doldu", "yeniden doldu")
+	esit(b.yuva_bedeli(e), -1, "liste bitince altınla açılamaz")
+	bekle(not b.yuva_ac_altinla(oyuncu, e), "sınırdan sonra açılmaz")
