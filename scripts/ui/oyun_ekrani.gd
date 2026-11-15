@@ -5,11 +5,13 @@ extends Control
 const Veri = preload("res://scripts/core/veri.gd")
 const Bolum = preload("res://scripts/core/bolum.gd")
 const OtoOyuncu = preload("res://scripts/core/oto_oyuncu.gd")
+const Ekonomi = preload("res://scripts/core/ekonomi.gd")
 const Uretici = preload("res://scripts/core/uretici.gd")
 const Cizim = preload("res://scripts/ui/cizim.gd")
 const OdulCubugu = preload("res://scripts/ui/odul_cubugu.gd")
 
 signal bolum_bitti(no: int, kazandi: bool)
+signal ana_menu_istendi
 
 const TEN := [Color("f2c9a0"), Color("d9a073"), Color("a8714a"), Color("f6dcc4"), Color("8d5a3b")]
 const SAC := [Color("3b2416"), Color("7a3b1d"), Color("c9542a"), Color("1f1a17"), Color("d8a64a"), Color("5b3a29")]
@@ -76,6 +78,13 @@ var _panel_dugmeler: VBoxContainer
 var _panel_tur := ""
 var _cubuk = null
 var _kazanilan := 0
+## İpucu / öğretici: vurgulanan sütun (-1 yok) ve kalan süre.
+var _ipucu_sutun := -1
+var _ipucu_sure := 0.0
+var _bilgi := ""
+var _bilgi_sure := 0.0
+## Öğretici adımı: -1 kapalı, 0 malzemeye dokun, 1 usta pişiriyor, 2 tezgâh uyarısı.
+var _ogretici := -1
 
 
 func _ready() -> void:
@@ -118,6 +127,10 @@ func baslat(no: int) -> void:
 		_gorunum.append(0.0)
 		_kim.append(no * 3 + i)
 	_kim_sayac = no * 3 + n
+	_ipucu_sutun = -1
+	_ipucu_sure = 0.0
+	_bilgi_sure = 0.0
+	_ogretici = 0 if no == 1 and not oto and not bool(Oyun.durum.get("ogretici", false)) else -1
 	_vurus.clear()
 	for i in bolum.d.sutunlar.size():
 		_vurus.append(0.0)
@@ -139,7 +152,7 @@ func _yerlesim() -> void:
 	_mutfak = _tezgah.grow(-100)
 	var mc := _mutfak.get_center()
 	_mangal = Rect2(mc.x - 200, mc.y + 70, 400, 100)
-	_tepsi = Rect2(50, _tezgah.end.y + 255, w - 100, 140)
+	_tepsi = Rect2(150, _tezgah.end.y + 255, w - 300, 140)
 	_sutun_alani = Rect2(24, _tepsi.end.y + 30, w - 48, h - _tepsi.end.y - 50)
 	_koltuk_bas.clear()
 	for slot in ayar.koltuk_slotlari:
@@ -207,6 +220,9 @@ func _sutun_ust_konum(s: int) -> Vector2:
 func _process(delta: float) -> void:
 	if bolum == null:
 		return
+	if _panel.visible and _panel_tur == "durak":
+		return
+	_yardim_guncelle(delta)
 	var dt := delta * hiz
 	_canlandir(dt)
 	for u: Dictionary in _ucanlar:
@@ -299,6 +315,18 @@ func _gui_input(event: InputEvent) -> void:
 		Ses.efekt_acik = acik
 		Ses.muzik_acik = acik
 		Ses.cal("dugme")
+		accept_event()
+		return
+	if _bolum_etiketi().grow(10).has_point(p):
+		_durak_paneli()
+		accept_event()
+		return
+	if _geri_dugmesi().has_point(p):
+		_geri_al()
+		accept_event()
+		return
+	if _ipucu_dugmesi().has_point(p):
+		_ipucu_al()
 		accept_event()
 		return
 	if _sutun_alani.has_point(p):
@@ -429,6 +457,9 @@ func _doldu_paneli() -> void:
 	if bedel >= 0:
 		liste.append(["%d altınla yuva aç" % bedel, "sari", _altinla_ac, Oyun.altin >= bedel])
 	liste.append(["Reklam izle, yuva aç", "mavi", _reklamla_ac, bolum.reklam_hakki_var(Oyun.ekonomi) and Reklam.hazir_mi()])
+	if bolum.geri_alinabilir():
+		var gb := int(Oyun.ekonomi.geri_al_bedeli)
+		liste.append(["%d altınla son hamleyi geri al" % gb, "sari", _geri_al_ve_devam, Oyun.altin >= gb])
 	liste.append(["Vazgeç", "gri", _vazgec, true])
 	_dugmeler(liste)
 
@@ -531,6 +562,7 @@ func _draw() -> void:
 		_balon(i)
 	_ust_bilgi()
 	_tepsi_ciz()
+	_yardimci_ciz()
 	_sutunlar()
 	_parcacik_ciz(["kalp", "konfeti"])
 	for u: Dictionary in _ucanlar:
@@ -562,7 +594,7 @@ func _kutu(r: Rect2, renk: Color, yaricap: float, kenar: int = 0, kenar_renk: Co
 
 
 func _yazi(merkez: Vector2, metin: String, boy: int, renk: Color, kontur: int = 0, kontur_renk: Color = Cizim.KONTUR) -> void:
-	var w := 800.0
+	var w := maxf(800.0, size.x)
 	var p := Vector2(merkez.x - w * 0.5, merkez.y + boy * 0.35)
 	if kontur > 0:
 		draw_string_outline(_font, p, metin, HORIZONTAL_ALIGNMENT_CENTER, w, boy, kontur, kontur_renk)
@@ -800,6 +832,13 @@ func _sutunlar() -> void:
 		var ust := _sutun_ust_konum(c)
 		if not s.is_empty():
 			draw_circle(ust, 56, Color(1, 1, 1, 0.35))
+			if c == _ipucu_sutun:
+				var nabiz := 0.5 + 0.5 * sin(_zaman * 8.0)
+				draw_arc(ust, 64 + nabiz * 8, 0, TAU, 40, Color(1, 0.85, 0.2, 0.9), 8, true)
+				var ok_y := ust.y - 92 - nabiz * 14
+				draw_colored_polygon(PackedVector2Array([Vector2(ust.x - 26, ok_y), Vector2(ust.x + 26, ok_y),
+					Vector2(ust.x, ok_y + 30)]), Color("ffd54a"))
+				draw_rect(Rect2(ust.x - 10, ok_y - 30, 20, 32), Color("ffd54a"))
 		for k in s.size():
 			var p := ust + Vector2(0, k * HUCRE)
 			if p.y + 46 > r.end.y:
@@ -978,3 +1017,122 @@ func _ses_ciz() -> void:
 	else:
 		draw_line(m + Vector2(10, -9), m + Vector2(24, 9), Color("ff6a5a"), 4, true)
 		draw_line(m + Vector2(24, -9), m + Vector2(10, 9), Color("ff6a5a"), 4, true)
+
+
+# --- Yardımcılar: geri al, ipucu; öğretici; duraklatma ---------------------------
+
+func _geri_dugmesi() -> Rect2:
+	return Rect2(24, _tepsi.position.y, 112, _tepsi.size.y)
+
+
+func _ipucu_dugmesi() -> Rect2:
+	return Rect2(size.x - 136, _tepsi.position.y, 112, _tepsi.size.y)
+
+
+func _bolum_etiketi() -> Rect2:
+	return Rect2(24, _ust + 12, 190, 52)
+
+
+func _geri_al() -> void:
+	if not bolum.geri_alinabilir():
+		_bilgi_goster("Geri alınacak hamle yok")
+		return
+	if bolum.geri_al_altinla(Oyun.durum, Oyun.ekonomi):
+		Oyun.altin_harcandi()
+		Ses.cal("tezgah")
+	else:
+		_bilgi_goster("Yeterli altın yok")
+
+
+func _geri_al_ve_devam() -> void:
+	if bolum.geri_al_altinla(Oyun.durum, Oyun.ekonomi):
+		Oyun.altin_harcandi()
+		_devam_et()
+
+
+func _ipucu_al() -> void:
+	var s := OtoOyuncu.sec(bolum)
+	if s < 0:
+		_bilgi_goster("Bekle, yemekler yolda!")
+		return
+	if not Ekonomi.harca(Oyun.durum, int(Oyun.ekonomi.ipucu_bedeli)):
+		_bilgi_goster("Yeterli altın yok")
+		return
+	Oyun.altin_harcandi()
+	Ses.cal("altin", 1.3, -6.0)
+	_ipucu_sutun = s
+	_ipucu_sure = 3.0
+
+
+func _bilgi_goster(metin: String) -> void:
+	_bilgi = metin
+	_bilgi_sure = 2.0
+	Ses.cal("uyari", 0.8, -8.0)
+
+
+func _yardim_guncelle(delta: float) -> void:
+	_bilgi_sure = maxf(0.0, _bilgi_sure - delta)
+	if _ogretici >= 0:
+		if bolum.d.sonuc == "":
+			_ipucu_sutun = OtoOyuncu.sec(bolum)
+		if _ogretici == 0 and (not bolum.d.pisenler.is_empty() or bolum.d.servis > 0):
+			_ogretici = 1
+		if _ogretici == 1 and bolum.d.servis >= 1:
+			_ogretici = 2
+		if _ogretici == 2 and bolum.d.servis >= 4:
+			_ogretici = -1
+			_ipucu_sutun = -1
+			Oyun.durum["ogretici"] = true
+			Oyun.kaydet()
+	elif _ipucu_sure > 0.0:
+		_ipucu_sure -= delta
+		if _ipucu_sure <= 0.0:
+			_ipucu_sutun = -1
+
+
+func _yardimci_ciz() -> void:
+	for d: Array in [[_geri_dugmesi(), "geri", int(Oyun.ekonomi.geri_al_bedeli), bolum.geri_alinabilir()],
+			[_ipucu_dugmesi(), "ipucu", int(Oyun.ekonomi.ipucu_bedeli), true]]:
+		var r: Rect2 = d[0]
+		var etkin: bool = d[3] and Oyun.altin >= int(d[2])
+		_kutu(r, Color("8f5729") if etkin else Color("8f7a66"), 26, 5, Color("5e3517"))
+		var m := r.get_center() + Vector2(0, -16)
+		var renk := Color.WHITE if etkin else Color(1, 1, 1, 0.5)
+		if d[1] == "geri":
+			draw_arc(m, 26, -PI * 0.15, PI * 1.25, 20, renk, 9, true)
+			var uc := m + Vector2(cos(PI * 1.25), sin(PI * 1.25)) * 26
+			draw_colored_polygon(PackedVector2Array([uc + Vector2(-16, -2), uc + Vector2(12, -10), uc + Vector2(4, 16)]), renk)
+		else:
+			draw_circle(m + Vector2(0, -6), 20, Color(1, 0.86, 0.3, renk.a))
+			draw_rect(Rect2(m + Vector2(-9, 12), Vector2(18, 14)), renk)
+			draw_line(m + Vector2(-9, 19), m + Vector2(9, 19), Color("8f5729"), 2)
+		var alt := Vector2(r.get_center().x, r.end.y - 26)
+		draw_circle(alt + Vector2(-26, 0), 11, Color("f6c33b"))
+		draw_circle(alt + Vector2(-26, 0), 7, Color("e0a422"))
+		_yazi(alt + Vector2(10, 0), str(d[2]), 30, renk, 5, Color(0.25, 0.15, 0.08))
+	var metin := ""
+	if _ogretici == 0:
+		metin = "İstenen yemeğin malzemelerine dokun!"
+	elif _ogretici == 1:
+		metin = "Tarif tamam! Usta pişirip banda koyar."
+	elif _ogretici == 2:
+		metin = "Tezgâh dolarsa yanarsın, dikkatli seç!"
+	elif _bilgi_sure > 0.0:
+		metin = _bilgi
+	if metin != "":
+		var br := Rect2(40, _tepsi.position.y - 92, size.x - 80, 74)
+		_kutu(br, Color(0.18, 0.1, 0.05, 0.85), 30, 4, Color("f2b33d"))
+		_yazi(br.get_center(), metin, 32, Color.WHITE)
+
+
+func _durak_paneli() -> void:
+	_ek_temizle()
+	_panel_tur = "durak"
+	_panel_baslik.text = "Mola"
+	_panel_alt.text = "Bölüm %d" % bolum_no
+	_dugmeler([
+		["Devam et", "yesil", _devam_et],
+		["Bölümü baştan başlat", "sari", baslat.bind(bolum_no)],
+		["Ana menü", "gri", func(): ana_menu_istendi.emit()],
+	])
+	_panel.show()

@@ -30,6 +30,8 @@
       200
     ],
     "reklam_yuva_hakki": 1,
-    "reklam_carpani": 2
+    "reklam_carpani": 2,
+    "geri_al_bedeli": 30,
+    "ipucu_bedeli": 15
   }
 }

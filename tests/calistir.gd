@@ -218,7 +218,8 @@ func test_tum_bolumler_cozulebilir() -> void:
 
 func ekonomi_ayar() -> Dictionary:
 	return {"baslangic_altin": 100, "odul_cubugu": [20, 30, 40, 30, 20], "cubuk_hizi": 1.0,
-		"yuva_bedeli": [50, 100], "reklam_yuva_hakki": 1, "reklam_carpani": 2}
+		"yuva_bedeli": [50, 100], "reklam_yuva_hakki": 1, "reklam_carpani": 2,
+		"geri_al_bedeli": 30, "ipucu_bedeli": 15}
 
 
 func dolu_bolum():
@@ -311,3 +312,37 @@ func test_altin_yuva_siniri() -> void:
 	esit(b.d.sonuc, "doldu", "yeniden doldu")
 	esit(b.yuva_bedeli(e), -1, "liste bitince altınla açılamaz")
 	bekle(not b.yuva_ac_altinla(oyuncu, e), "sınırdan sonra açılmaz")
+
+
+
+func test_geri_al_son_malzemeyi_sutuna_dondurur() -> void:
+	var b = yeni([["kiyma", "hamur", "yogurt"], ["peynir"]], [{"yemek": "lahmacun", "adet": 1}])
+	b.dokun(0)
+	b.dokun(1)
+	bekle(b.geri_alinabilir(), "pişirme olmadıysa geri alınabilir")
+	bekle(b.geri_al(), "geri alma çalışır")
+	esit(b.d.tezgah, ["yogurt"], "son malzeme tezgâhtan çıkar")
+	esit(b.d.sutunlar[1], ["peynir"], "geldiği sütunun üstüne döner")
+	bekle(b.geri_al(), "bir önceki de geri alınır")
+	esit(b.d.sutunlar[0], ["kiyma", "hamur", "yogurt"], "ilk sütun eski hâline döner")
+	bekle(not b.geri_al(), "geçmiş bitince geri alınamaz")
+
+
+func test_pisirmeden_sonra_geri_alinamaz() -> void:
+	var b = yeni([["kiyma", "hamur"]], [{"yemek": "lahmacun", "adet": 1}])
+	b.dokun(0)
+	b.dokun(0)
+	bekle(not b.geri_alinabilir(), "pişen malzemeler geri alınamaz")
+
+
+func test_tezgah_doluyken_geri_al_oyunu_surdurur() -> void:
+	var e := ekonomi_ayar()
+	var oyuncu := {"altin": 40}
+	var b = dolu_bolum()
+	esit(b.d.sonuc, "doldu", "tezgâh doldu")
+	bekle(b.geri_al_altinla(oyuncu, e), "altınla geri alınır")
+	esit(oyuncu.altin, 10, "bedel düşülür")
+	esit(b.d.sonuc, "", "oyun sürer")
+	esit(b.d.tezgah.size(), 1, "tezgâhta bir yer açılır")
+	bekle(not b.geri_al_altinla(oyuncu, e), "altın yetmezse geri alınmaz")
+	esit(b.d.tezgah.size(), 1, "yetmeyince tezgâh değişmez")

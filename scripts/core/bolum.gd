@@ -65,6 +65,7 @@ func _init(seviye: Dictionary, denge: Dictionary, tarif_listesi: Dictionary) -> 
 		"kapasite": int(seviye.get("tezgah", denge.tezgah_kapasite)),
 		"acilan_altin": 0,
 		"acilan_reklam": 0,
+		"gecmis": [],
 	}
 	for i in (ayar.koltuk_slotlari as Array).size():
 		d.koltuklar.append({"yemek": BOS, "kalan": 0, "bekleme": 0})
@@ -81,9 +82,38 @@ func dokun(sutun: int) -> bool:
 		return false
 	d.tezgah.append(s.pop_back())
 	son_olaylar = _pisir()
+	# Geri alınabilecek hamleler: pişirme olunca geçmiş silinir (malzeme artık tezgâhta değil).
+	if son_olaylar.is_empty():
+		d.gecmis.append(sutun)
+	else:
+		d.gecmis.clear()
 	if d.tezgah.size() >= d.kapasite:
 		d.sonuc = "doldu"
 	return true
+
+
+## Son dokunuş geri alınabilir mi (malzemesi hâlâ tezgâhın sonunda duruyorsa).
+func geri_alinabilir() -> bool:
+	return (d.sonuc == "" or d.sonuc == "doldu") and not d.gecmis.is_empty() and not d.tezgah.is_empty()
+
+
+## Son malzemeyi tezgâhtan alıp geldiği sütunun üstüne geri koyar. Altın bedeli çağırana aittir.
+## Tezgâh doluyken de kullanılabilir; o zaman oyun sürer.
+func geri_al() -> bool:
+	if not geri_alinabilir():
+		return false
+	var sutun: int = d.gecmis.pop_back()
+	d.sutunlar[sutun].append(d.tezgah.pop_back())
+	if d.sonuc == "doldu":
+		d.sonuc = ""
+	return true
+
+
+## Altını düşüp son dokunuşu geri alır.
+func geri_al_altinla(oyuncu: Dictionary, ekonomi: Dictionary) -> bool:
+	if not geri_alinabilir() or not Ekonomi.harca(oyuncu, int(ekonomi.geri_al_bedeli)):
+		return false
+	return geri_al()
 
 
 ## Tezgâh doluyken altınla bir yuva açılabilir mi; açılabiliyorsa bedeli, değilse -1.

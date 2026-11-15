@@ -1,6 +1,8 @@
 extends Node
-## Ana sahne: oyun ekranını kurar ve kayıtlı bölümden başlatır.
+## Ana sahne: başlangıç ekranını gösterir; "Oyna" ile oyun ekranına geçer.
+## Geliştirici argümanları verilirse (bölüm, oto, panel) doğrudan oyun açılır.
 ## Geliştirici argümanları (`--` sonrasında):
+##   --menu                  başlangıç ekranını zorla (ekran görüntüsü için)
 ##   --kayitsiz              oyuncunun kaydını okumaz/yazmaz
 ##   --bolum=<n>             bu bölümden başlar
 ##   --oto                   otomatik oyuncu dokunur
@@ -11,23 +13,25 @@ extends Node
 
 const OyunEkrani = preload("res://scripts/ui/oyun_ekrani.gd")
 const OtoOyuncu = preload("res://scripts/core/oto_oyuncu.gd")
+const Baslangic = preload("res://scripts/ui/baslangic.gd")
 
 var _biten := 0
+var _arg := {}
+var _ekran: Control
 
 
 func _ready() -> void:
 	var arg := _argumanlar()
-	var ekran := OyunEkrani.new()
-	add_child(ekran)
-	ekran.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ekran.oto = arg.has("oto")
-	ekran.hiz = float(arg.get("hiz", "1"))
-	ekran.bolum_bitti.connect(_bolum_bitti.bind(int(arg.get("duman", "0"))))
-	ekran.baslat(int(arg.get("bolum", str(Oyun.bolum))))
+	_arg = arg
+	var dogrudan := (arg.has("bolum") or arg.has("oto") or arg.has("panel")) and not arg.has("menu")
+	if dogrudan:
+		_oyunu_ac(int(arg.get("bolum", str(Oyun.bolum))))
+	else:
+		_menuyu_ac()
 	Ses.muzik_baslat()
 	if arg.has("panel"):
 		await get_tree().create_timer(0.5).timeout
-		_panel_ac(ekran, str(arg.panel))
+		_panel_ac(_ekran, str(arg.panel))
 
 	if arg.has("ekran"):
 		await get_tree().create_timer(float(arg.get("bekle", "2"))).timeout
@@ -35,6 +39,37 @@ func _ready() -> void:
 		get_viewport().get_texture().get_image().save_png(str(arg.ekran))
 		print("Ekran görüntüsü: ", arg.ekran)
 		get_tree().quit()
+
+
+func _temizle() -> void:
+	for c in get_children():
+		remove_child(c)
+		c.queue_free()
+	_ekran = null
+
+
+func _menuyu_ac() -> void:
+	_temizle()
+	var menu := Baslangic.new()
+	add_child(menu)
+	menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	menu.oyna_istendi.connect(func(): _oyunu_ac.call_deferred(Oyun.bolum))
+	if _arg.has("oto"):
+		# duman testi: menüden "Oyna"ya basılmış gibi devam et
+		get_tree().create_timer(0.5).timeout.connect(func(): menu.oyna_istendi.emit())
+
+
+func _oyunu_ac(no: int) -> void:
+	_temizle()
+	var ekran := OyunEkrani.new()
+	add_child(ekran)
+	ekran.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ekran.oto = _arg.has("oto")
+	ekran.hiz = float(_arg.get("hiz", "1"))
+	ekran.bolum_bitti.connect(_bolum_bitti.bind(int(_arg.get("duman", "0"))))
+	ekran.ana_menu_istendi.connect(func(): _menuyu_ac.call_deferred())
+	ekran.baslat(no)
+	_ekran = ekran
 
 
 func _bolum_bitti(no: int, kazandi: bool, duman: int) -> void:

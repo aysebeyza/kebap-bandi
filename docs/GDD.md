@@ -49,7 +49,7 @@ Ayarlar `data/denge.json → ekonomi`, kurallar `scripts/core/ekonomi.gd` ve `sc
 - *Onay bekleyen varsayılan:* Ödül çubuğundan sonra "Reklam izle" ile kazanılan altın 2 katına çıkar.
 - Ödül çubuğu saniyede 1,4 uç-uç geçiş hızıyla gidip gelir (`cubuk_hizi`).
 - Reklam hizmeti `scripts/reklam.gd` (otomatik yüklenen `Reklam`). Gerçek reklam ağı bağlanana kadar 3 sn'lik deneme reklamı gösterir. Gerçek ağ (ör. AdMob) için bir hesap, Godot Android eklentisi ve yayın imzası gerekir; yalnızca `odullu_goster()` içi değişir.
-- Altın şimdilik yalnızca yuva açmaya harcanır.
+- Altın yuva açmaya, geri almaya ve ipucuna harcanır.
 
 ## Ses
 
@@ -57,6 +57,15 @@ Ayarlar `data/denge.json → ekonomi`, kurallar `scripts/core/ekonomi.gd` ve `sc
 - Müzik: Hicaz makamında saz benzeri telli ezgi, dem ve maksum usulünde darbuka; 19 sn'lik döngü.
 - Çalan: `scripts/ses.gd` (otomatik yüklenen `Ses`). Oyunda sağ üstteki hoparlör düğmesi sesi açıp kapatır; ayar kayıtta tutulur.
 - *Onay bekleyen varsayılan:* Sesler geçicidir; beğenilmezse ücretsiz (CC0) ses paketleriyle değiştirilebilir, dosya adları aynı kalırsa kod değişmez.
+
+## Yardımcılar, öğretici, menü
+
+- **Geri al** (tezgâhın solu): son dokunulan malzeme tezgâhtan geldiği sütunun üstüne döner. Malzeme bir tarifte pişirildiyse geri alınamaz. Tezgâh doluyken "Tezgâh doldu" penceresinden de kullanılabilir.
+- **İpucu** (tezgâhın sağı): otomatik oyuncunun önerdiği sütun 3 sn boyunca okla vurgulanır. Faydalı malzeme yoksa "Bekle, yemekler yolda!" yazar ve altın harcanmaz.
+- *Onay bekleyen varsayılan:* Geri al 30, ipucu 15 altın (`ekonomi.geri_al_bedeli`, `ipucu_bedeli`). "Karıştır" bilerek yok: sütun sırasını bozmak bölümün çözülebilir olduğu garantisini bozar.
+- **Öğretici:** 1. bölümde, ilk kez oynayana. Önerilen sütun okla gösterilir ve üç kısa yazı sırayla çıkar: malzemeye dokun → usta pişirir → tezgâh dolarsa yanarsın. 4. servisten sonra biter, bir daha çıkmaz (kayıtta `ogretici`).
+- **Başlangıç ekranı:** oyunun adı, usta, altın, "Oyna — Bölüm N" ve Ayarlar (ses efektleri, müzik).
+- **Duraklatma:** oyunda sol üstteki "Bölüm N" etiketine dokununca: Devam et, Bölümü baştan başlat, Ana menü.
 
 ## Henüz karar verilmeyenler (sonraki aşamalar)
 
