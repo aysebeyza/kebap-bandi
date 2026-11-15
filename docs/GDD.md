@@ -30,7 +30,8 @@ Kesinleşen kurallar [PLAN.md](../PLAN.md) içindedir. Bu dosya ayrıntıları v
 
 ## Ekran (ilk sürüm)
 
-- Tüm görseller şimdilik kodla çiziliyor (`scripts/ui/cizim.gd`): 10 yemek, 14 malzeme, müşteriler, usta, döner ocağı, mangal.
+- 10 yemek ve 14 malzeme Blender'da 3D modellenip simgeye çevrilir (`tools/blender/simgeler.py`, `docs/simgeler.png`): yumuşak ışık, sıcak ortam rengi, koyu kahve kontur. Simgelerin altında yumuşak gölge çizilir.
+- Müşteriler, usta, restoran ve arayüz şimdilik kodla çiziliyor (`scripts/ui/cizim.gd`, `scripts/ui/oyun_ekrani.gd`).
 - Mangalda pişen yemeğin çevresindeki sarı halka pişme süresini gösterir.
 - Tezgâhın son iki yuvası kalınca son yuva kırmızılaşır ve üstünde "!" çıkar.
 - Müşteriler bandın üst ve alt kenarında, köşelere yakın oturur. Sipariş balonu dış yanda durur.
@@ -43,5 +44,5 @@ Kesinleşen kurallar [PLAN.md](../PLAN.md) içindedir. Bu dosya ayrıntıları v
 - Yıldızlar ve bahşiş (*varsayılan önerisi:* tezgâhın en yüksek doluluğuna göre 1–3 yıldız)
 - Yardımcılar: karıştır, geri al, tezgâha +1 yuva
 - Gizli yemekler
-- Görsel: üstte Blender betiğiyle 3D restoran ve ocakbaşı ustası, altta Blender'da üretilmiş yemek simgeleri
+- Görsel: usta, müşteriler ve restoranı da Blender'da üretmek; yuvarlak hatlı yazı tipi; duman, buhar, sevinç animasyonları
 - Ses, reklam, can sistemi (*varsayılan:* ilk sürümde yok)
