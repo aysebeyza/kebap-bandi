@@ -30,8 +30,18 @@ Oynanış mantığı türdeki örnek oyunla aynıdır. Tema, yemekler, karakterl
 
 ### Altın ve reklam (sahibinin isteği)
 - Oyuncunun altını vardır; kayıtta tutulur.
-- Tezgâh dolunca bölüm hemen bitmez, oyun durur. Üç seçenek: altınla bir yuva aç, reklam izleyip bir yuva aç ya da vazgeç (yan).
+- Tezgâh 7 yuvadır; sonunda kilitli bir "+" yuvası durur. Her bölümde **en fazla bir** ek yuva açılabilir (7 → 8): altınla ya da bölüm başına tek seferlik reklamla. Oyun sürerken "+" yuvasına dokunarak ya da tezgâh dolunca açılır.
+- Tezgâh dolunca bölüm hemen bitmez, oyun durur: ek yuva hâlâ açılmadıysa açılabilir, son hamle geri alınabilir ya da vazgeçilir (yan).
 - Bölüm kazanılınca ödül çubuğu çıkar: gösterge 20-30-40-30-20 dilimleri üzerinde gidip gelir; "Durdur"a basınca göstergenin altındaki dilim kadar altın kazanılır.
+
+### Bağlı malzemeler (sahibinin isteği)
+- İleri bölümlerde yan yana sütunlardaki 2 ya da 3 malzeme birbirine bağlıdır (iple gösterilir).
+- Bağlı malzemelerin hepsi kendi sütununda en üste gelmeden onlara dokunulamaz.
+- Hepsi en üstteyken birine dokununca hepsi birlikte tezgâha gider; tezgâhta hepsine yer yoksa gidemez.
+
+### Hız (sahibinin isteği)
+- Oyun (bant, mangal, müşteriler) normal hızda (x1) başlar.
+- Sağ üstteki "x1" düğmesinden altınla x2 hız alınır; 30 dakika sürer, sonra x1'e döner. Süre gerçek saatle işler.
 
 ## Açık konular (varsayılanları docs/GDD.md içinde)
 - Bölüm sayısı ve zorluk eğrisi

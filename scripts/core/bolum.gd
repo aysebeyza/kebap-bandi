@@ -23,9 +23,12 @@ var tarifler: Dictionary
 var pisme_adim := 6
 ## Son dokun() çağrısının olayları (arayüz için): {"tur": "pisirildi", "yemek", "yuvalar"}
 var son_olaylar: Array = []
+## Son dokun() ile tezgâha giden malzemeler (arayüz için): [{"sutun", "malzeme", "yuva"}]
+var son_dokunus: Array = []
 
 
-## seviye: {"sutunlar": [[alt ... üst], ...], "siparisler": [{"yemek", "adet"}], "tezgah"?}
+## seviye: {"sutunlar": [[alt ... üst], ...], "siparisler": [{"yemek", "adet"}], "tezgah"?,
+##          "baglar"?: [[[sutun, alttan_sira], ...], ...]}  (bağlı malzeme grupları)
 func _init(seviye: Dictionary, denge: Dictionary, tarif_listesi: Dictionary) -> void:
 	ayar = denge.bant
 	tarifler = tarif_listesi
@@ -66,25 +69,74 @@ func _init(seviye: Dictionary, denge: Dictionary, tarif_listesi: Dictionary) -> 
 		"acilan_altin": 0,
 		"acilan_reklam": 0,
 		"gecmis": [],
+		"baglar": [],
 	}
+	for g: Array in seviye.get("baglar", []):
+		var grup := []
+		for u: Array in g:
+			grup.append([int(u[0]), int(u[1])])
+		d.baglar.append(grup)
 	for i in (ayar.koltuk_slotlari as Array).size():
 		d.koltuklar.append({"yemek": BOS, "kalan": 0, "bekleme": 0})
 		_oturt(i)
 
 
-## Sütunun en üstündeki tek malzemeyi tezgâha gönderir.
+## Sütunun en üstündeki malzemenin bağlı olduğu grup (yoksa boş dizi).
+## Grup: [[sutun, alttan_sira], ...]
+func bag_grubu(sutun: int) -> Array:
+	var st: Array = d.sutunlar[sutun]
+	if st.is_empty():
+		return []
+	for g: Array in d.baglar:
+		for u: Array in g:
+			if u[0] == sutun and u[1] == st.size() - 1:
+				return g
+	return []
+
+
+## Bu sütuna dokunulamıyorsa nedeni: "" (dokunulabilir), "bos", "bag" (bağlı malzemeler
+## hepsi en üstte değil), "yer" (bağlı malzemelerin hepsine tezgâhta yer yok), "bitti".
+func dokunma_engeli(sutun: int) -> String:
+	if d.sonuc != "":
+		return "bitti"
+	if sutun < 0 or sutun >= d.sutunlar.size() or d.sutunlar[sutun].is_empty():
+		return "bos"
+	var g := bag_grubu(sutun)
+	if g.is_empty():
+		return ""
+	for u: Array in g:
+		if u[1] != d.sutunlar[u[0]].size() - 1:
+			return "bag"
+	if d.tezgah.size() + g.size() > d.kapasite:
+		return "yer"
+	return ""
+
+
+func dokunulabilir(sutun: int) -> bool:
+	return dokunma_engeli(sutun) == ""
+
+
+## Sütunun en üstündeki malzemeyi tezgâha gönderir. Malzeme bağlıysa (ve bağlı olanların
+## hepsi kendi sütununda en üstteyse) hepsi birlikte gider.
 func dokun(sutun: int) -> bool:
 	son_olaylar = []
-	if d.sonuc != "" or sutun < 0 or sutun >= d.sutunlar.size():
+	son_dokunus = []
+	if not dokunulabilir(sutun):
 		return false
-	var s: Array = d.sutunlar[sutun]
-	if s.is_empty():
-		return false
-	d.tezgah.append(s.pop_back())
+	var g := bag_grubu(sutun)
+	var sutunlar := [sutun]
+	if not g.is_empty():
+		sutunlar = []
+		for u: Array in g:
+			sutunlar.append(u[0])
+		d.baglar.erase(g)
+	for st: int in sutunlar:
+		son_dokunus.append({"sutun": st, "malzeme": d.sutunlar[st].back(), "yuva": d.tezgah.size()})
+		d.tezgah.append(d.sutunlar[st].pop_back())
 	son_olaylar = _pisir()
 	# Geri alınabilecek hamleler: pişirme olunca geçmiş silinir (malzeme artık tezgâhta değil).
 	if son_olaylar.is_empty():
-		d.gecmis.append(sutun)
+		d.gecmis.append({"sutunlar": sutunlar, "grup": g})
 	else:
 		d.gecmis.clear()
 	if d.tezgah.size() >= d.kapasite:
@@ -92,18 +144,22 @@ func dokun(sutun: int) -> bool:
 	return true
 
 
-## Son dokunuş geri alınabilir mi (malzemesi hâlâ tezgâhın sonunda duruyorsa).
+## Son dokunuş geri alınabilir mi (malzemeleri hâlâ tezgâhın sonunda duruyorsa).
 func geri_alinabilir() -> bool:
 	return (d.sonuc == "" or d.sonuc == "doldu") and not d.gecmis.is_empty() and not d.tezgah.is_empty()
 
 
-## Son malzemeyi tezgâhtan alıp geldiği sütunun üstüne geri koyar. Altın bedeli çağırana aittir.
-## Tezgâh doluyken de kullanılabilir; o zaman oyun sürer.
+## Son dokunuşun malzemelerini tezgâhtan alıp geldikleri sütunların üstüne geri koyar
+## (bağ da geri gelir). Altın bedeli çağırana aittir. Tezgâh doluyken de kullanılabilir.
 func geri_al() -> bool:
 	if not geri_alinabilir():
 		return false
-	var sutun: int = d.gecmis.pop_back()
-	d.sutunlar[sutun].append(d.tezgah.pop_back())
+	var kayit: Dictionary = d.gecmis.pop_back()
+	var sutunlar: Array = kayit.sutunlar
+	for i in range(sutunlar.size() - 1, -1, -1):
+		d.sutunlar[sutunlar[i]].append(d.tezgah.pop_back())
+	if not (kayit.grup as Array).is_empty():
+		d.baglar.append(kayit.grup)
 	if d.sonuc == "doldu":
 		d.sonuc = ""
 	return true
@@ -116,14 +172,21 @@ func geri_al_altinla(oyuncu: Dictionary, ekonomi: Dictionary) -> bool:
 	return geri_al()
 
 
-## Tezgâh doluyken altınla bir yuva açılabilir mi; açılabiliyorsa bedeli, değilse -1.
+## Tezgâha ek yuva açılabilir mi: bölüm başına en fazla "en_fazla_ek_yuva" (altın ya da reklam).
+## Oyun sürerken de, tezgâh doluyken de açılabilir.
+func ek_yuva_acilabilir(ekonomi: Dictionary) -> bool:
+	return (d.sonuc == "" or d.sonuc == "doldu") \
+		and int(d.acilan_altin) + int(d.acilan_reklam) < int(ekonomi.en_fazla_ek_yuva)
+
+
+## Altınla ek yuva bedeli; açılamıyorsa -1.
 func yuva_bedeli(ekonomi: Dictionary) -> int:
-	if d.sonuc != "doldu":
+	if not ek_yuva_acilabilir(ekonomi):
 		return -1
 	return Ekonomi.yuva_bedeli(ekonomi, int(d.acilan_altin))
 
 
-## Altını oyuncunun durumundan düşüp bir yuva açar ve oyunu sürdürür.
+## Altını oyuncunun durumundan düşüp bir yuva açar; tezgâh doluysa oyun sürer.
 func yuva_ac_altinla(oyuncu: Dictionary, ekonomi: Dictionary) -> bool:
 	var bedel := yuva_bedeli(ekonomi)
 	if bedel < 0 or not Ekonomi.harca(oyuncu, bedel):
@@ -133,12 +196,12 @@ func yuva_ac_altinla(oyuncu: Dictionary, ekonomi: Dictionary) -> bool:
 	return true
 
 
-## Reklam hakkı kaldı mı (bölüm başına sınırlı).
+## Reklamla yuva hakkı kaldı mı (bölüm başına sınırlı, ek yuva sınırına da tabi).
 func reklam_hakki_var(ekonomi: Dictionary) -> bool:
-	return d.sonuc == "doldu" and int(d.acilan_reklam) < int(ekonomi.reklam_yuva_hakki)
+	return ek_yuva_acilabilir(ekonomi) and int(d.acilan_reklam) < int(ekonomi.reklam_yuva_hakki)
 
 
-## Reklam izlendikten sonra çağrılır: bir yuva açar ve oyunu sürdürür.
+## Reklam izlendikten sonra çağrılır: bir yuva açar; tezgâh doluysa oyun sürer.
 func yuva_ac_reklamla(ekonomi: Dictionary) -> bool:
 	if not reklam_hakki_var(ekonomi):
 		return false
@@ -155,7 +218,8 @@ func pes_et() -> void:
 
 func _yuva_ekle() -> void:
 	d.kapasite += 1
-	d.sonuc = ""
+	if d.sonuc == "doldu":
+		d.sonuc = ""
 
 
 ## Bir adım: bant döner, mangal pişirir, pişen banda girer, müşteriler alır.

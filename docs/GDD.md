@@ -4,7 +4,7 @@ Kesinleşen kurallar [PLAN.md](../PLAN.md) içindedir. Bu dosya ayrıntıları v
 
 ## Zaman, mangal ve bant
 
-- Oyun adımlarla ilerler; her adımda bant bir yuva döner. Adım süresi 0,25 sn (`data/denge.json → bant.adim_suresi`).
+- Oyun adımlarla ilerler; her adımda bant bir yuva döner. *Onay bekleyen varsayılan:* x1 hızda adım süresi 0,34 sn (`data/denge.json → bant.adim_suresi`); x2 hızda yarısı.
 - Hazırlık tezgâhı 7 yuvadır (`tezgah_kapasite`, bölüm başına `tezgah` ile değişebilir). 7. yuva dolduğu anda, o malzeme bir tarifi tamamlamıyorsa bölüm kaybedilir. Yani son yuvaya yalnızca tarifi tamamlayan malzeme konabilir.
 - *Onay bekleyen varsayılan:* Usta, bir tarif tamamlanır tamamlanmaz kendiliğinden pişirir; aynı anda birden çok yemek pişebilir. Pişme süresi 6 adım (1,5 sn, `pisme_adim`).
 - *Onay bekleyen varsayılan:* Usta yalnızca hâlâ sipariş edilmiş yemeği pişirir: henüz oturmamış müşterinin siparişi de olabilir; o yemek bantta dönerek bekler. Birden çok tarif tamamsa önce oturan müşterininki, sonra sırası en yakın olanınki pişer.
@@ -44,8 +44,7 @@ Kesinleşen kurallar [PLAN.md](../PLAN.md) içindedir. Bu dosya ayrıntıları v
 
 Ayarlar `data/denge.json → ekonomi`, kurallar `scripts/core/ekonomi.gd` ve `scripts/core/bolum.gd`.
 - *Onay bekleyen varsayılan:* Başlangıç altını 100.
-- *Onay bekleyen varsayılan:* Altınla yuva bedeli bir bölümde sırayla 50, 100, 200; üçten sonra altınla açılamaz.
-- *Onay bekleyen varsayılan:* Reklamla yuva bir bölümde 1 kez.
+- *Onay bekleyen varsayılan:* Ek yuva 60 altın (`yuva_bedeli`); bölümde en fazla 1 ek yuva (`en_fazla_ek_yuva`), reklamla da açılabilir.
 - *Onay bekleyen varsayılan:* Ödül çubuğundan sonra "Reklam izle" ile kazanılan altın 2 katına çıkar.
 - Ödül çubuğu saniyede 1,4 uç-uç geçiş hızıyla gidip gelir (`cubuk_hizi`).
 - Reklam hizmeti `scripts/reklam.gd` (otomatik yüklenen `Reklam`). Gerçek reklam ağı bağlanana kadar 3 sn'lik deneme reklamı gösterir. Gerçek ağ (ör. AdMob) için bir hesap, Godot Android eklentisi ve yayın imzası gerekir; yalnızca `odullu_goster()` içi değişir.
@@ -66,6 +65,14 @@ Ayarlar `data/denge.json → ekonomi`, kurallar `scripts/core/ekonomi.gd` ve `sc
 - **Öğretici:** 1. bölümde, ilk kez oynayana. Önerilen sütun okla gösterilir ve üç kısa yazı sırayla çıkar: malzemeye dokun → usta pişirir → tezgâh dolarsa yanarsın. 4. servisten sonra biter, bir daha çıkmaz (kayıtta `ogretici`).
 - **Başlangıç ekranı:** oyunun adı, usta, altın, "Oyna — Bölüm N" ve Ayarlar (ses efektleri, müzik).
 - **Duraklatma:** oyunda sol üstteki "Bölüm N" etiketine dokununca: Devam et, Bölümü baştan başlat, Ana menü.
+
+## Bağlı malzemeler ve hız
+
+- Bağ verisi bölümde `baglar`: her grup `[[sütun, alttan_sıra], ...]`. Üretici aynı sıradaki yan yana malzemeleri bağlar (`scripts/core/uretici.gd`).
+- *Onay bekleyen varsayılan:* Bağlar 8. bölümde başlar: 8–10. bölümde 1, sonra her 3 bölümde bir artar, en çok 8 (`bag_sayisi`). 15. bölümden sonra bağların %35'i üçlüdür (`uclu_oran`).
+- Bağlı hamle geri alınabilir; bağ da geri gelir. İlk bağlı bölümde bir kez "Bağlı malzemeler en üste gelince birlikte gider!" yazar.
+- Otomatik oyuncu bağları bilir; bağlı bölümlerin hepsi çözülebilir (test). Rastgele dokunan oyuncunun kazanma oranı 15. bölümde %6, 21. bölümden sonra %0.
+- *Onay bekleyen varsayılan:* x2 hız 100 altın, 30 dakika (`ekonomi.hizlandirma`); üst üste alınırsa süre uzar. Hız açıkken düğme altın rengindedir ve yanında kalan süre yazar.
 
 ## Henüz karar verilmeyenler (sonraki aşamalar)
 

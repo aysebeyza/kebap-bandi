@@ -12,7 +12,7 @@
       43
     ],
     "musteri_gelis_adim": 6,
-    "adim_suresi": 0.25
+    "adim_suresi": 0.34
   },
   "ekonomi": {
     "baslangic_altin": 100,
@@ -25,13 +25,17 @@
     ],
     "cubuk_hizi": 1.4,
     "yuva_bedeli": [
-      50,
-      100,
-      200
+      60
     ],
     "reklam_yuva_hakki": 1,
     "reklam_carpani": 2,
     "geri_al_bedeli": 30,
-    "ipucu_bedeli": 15
+    "ipucu_bedeli": 15,
+    "en_fazla_ek_yuva": 1,
+    "hizlandirma": {
+      "bedel": 100,
+      "sure_dk": 30,
+      "carpan": 2
+    }
   }
 }

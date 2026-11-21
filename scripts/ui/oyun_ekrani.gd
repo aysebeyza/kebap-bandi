@@ -85,6 +85,10 @@ var _bilgi := ""
 var _bilgi_sure := 0.0
 ## Öğretici adımı: -1 kapalı, 0 malzemeye dokun, 1 usta pişiriyor, 2 tezgâh uyarısı.
 var _ogretici := -1
+## Bağlı malzemeye yanlış dokununca sütunun sallanması.
+var _sallanma: Array = []
+## Oyunu durduran pencereler.
+const DURDURAN := ["durak", "ekyuva", "hiz"]
 
 
 func _ready() -> void:
@@ -132,10 +136,18 @@ func baslat(no: int) -> void:
 	_bilgi_sure = 0.0
 	_ogretici = 0 if no == 1 and not oto and not bool(Oyun.durum.get("ogretici", false)) else -1
 	_vurus.clear()
+	_sallanma.clear()
 	for i in bolum.d.sutunlar.size():
 		_vurus.append(0.0)
+	for i in bolum.d.sutunlar.size():
+		_sallanma.append(0.0)
 	_panel.hide()
 	_yerlesim()
+	if not (bolum.d.baglar as Array).is_empty() and not bool(Oyun.durum.get("bag_ogretici", false)) and not oto:
+		_bilgi = "Bağlı malzemeler en üste gelince birlikte gider!"
+		_bilgi_sure = 4.0
+		Oyun.durum["bag_ogretici"] = true
+		Oyun.kaydet()
 
 
 # --- Yerleşim ------------------------------------------------------------
@@ -202,7 +214,7 @@ func _sutun_genislik() -> float:
 
 
 func _tepsi_yuva(i: int) -> Vector2:
-	var n: int = bolum.d.kapasite
+	var n: int = bolum.d.kapasite + (1 if _arti_yuva_var() else 0)
 	var g := (_tepsi.size.x - 40.0) / n
 	return Vector2(_tepsi.position.x + 20.0 + (i + 0.5) * g, _tepsi.get_center().y)
 
@@ -220,10 +232,12 @@ func _sutun_ust_konum(s: int) -> Vector2:
 func _process(delta: float) -> void:
 	if bolum == null:
 		return
-	if _panel.visible and _panel_tur == "durak":
+	if _panel.visible and _panel_tur in DURDURAN:
 		return
 	_yardim_guncelle(delta)
-	var dt := delta * hiz
+	var dt := delta * hiz * _hiz_carpani()
+	for i in _sallanma.size():
+		_sallanma[i] = maxf(0.0, _sallanma[i] - delta * 3.0)
 	_canlandir(dt)
 	for u: Dictionary in _ucanlar:
 		u.t += dt / float(u.sure)
@@ -260,8 +274,16 @@ func _dokun(s: int) -> void:
 	var sutun: Array = bolum.d.sutunlar[s]
 	if sutun.is_empty():
 		return
-	var malzeme: String = sutun.back()
-	var yuva: int = bolum.d.tezgah.size()
+	var ilk_yuva: int = bolum.d.tezgah.size()
+	var engel: String = bolum.dokunma_engeli(s)
+	if engel == "bag":
+		_sallanma[s] = 1.0
+		_bilgi_goster("Bağlı malzemeler birlikte en üste gelmeli")
+		return
+	if engel == "yer":
+		_sallanma[s] = 1.0
+		_bilgi_goster("Bağlı malzemelere tezgâhta yer yok")
+		return
 	if not bolum.dokun(s):
 		return
 	_vurus[s] = 1.0
@@ -271,12 +293,14 @@ func _dokun(s: int) -> void:
 		Ses.cal("pisir", 1.0, -4.0)
 	elif bolum.d.sonuc == "" and bolum.dolu_sayisi() >= bolum.d.kapasite - 2:
 		Ses.cal("uyari", 1.0, -6.0)
-	_ucan("malzeme", malzeme, _sutun_ust_konum(s), _tepsi_yuva(yuva), 0.18, 0.0, "tepsi", yuva)
+	for g: Dictionary in bolum.son_dokunus:
+		_vurus[int(g.sutun)] = 1.0
+		_ucan("malzeme", g.malzeme, _sutun_ust_konum(int(g.sutun)), _tepsi_yuva(int(g.yuva)), 0.18, 0.0, "tepsi", int(g.yuva))
 	for o: Dictionary in bolum.son_olaylar:
 		var k: int = bolum.d.pisenler.size() - 1
 		for y: int in o.yuvalar:
 			var m: String = _tarifler[o.yemek][(o.yuvalar as Array).find(y)]
-			_ucan("malzeme", m, _tepsi_yuva(y), _mangal_yeri(mini(k, 3)), 0.25, 0.18 if y == yuva else 0.0, "mangal", -1)
+			_ucan("malzeme", m, _tepsi_yuva(y), _mangal_yeri(mini(k, 3)), 0.25, 0.18 if y >= ilk_yuva else 0.0, "mangal", -1)
 
 
 func _ucan(cesit: String, id: String, a: Vector2, b: Vector2, sure: float, gecikme: float, tur: String, yuva: int) -> void:
@@ -327,6 +351,14 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	if _ipucu_dugmesi().has_point(p):
 		_ipucu_al()
+		accept_event()
+		return
+	if _hiz_dugmesi().grow(10).has_point(p):
+		_hiz_paneli()
+		accept_event()
+		return
+	if _arti_yuva_var() and _arti_yuva_alani().grow(6).has_point(p):
+		_ek_yuva_paneli()
 		accept_event()
 		return
 	if _sutun_alani.has_point(p):
@@ -383,6 +415,8 @@ func _etiket(boy: int) -> Label:
 	l.add_theme_font_override("font", _font)
 	l.add_theme_font_size_override("font_size", boy)
 	l.add_theme_color_override("font_color", KAHVE)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(660, 0)
 	return l
 
 
@@ -564,6 +598,7 @@ func _draw() -> void:
 	_tepsi_ciz()
 	_yardimci_ciz()
 	_sutunlar()
+	_bag_ciz()
 	_parcacik_ciz(["kalp", "konfeti"])
 	for u: Dictionary in _ucanlar:
 		if u.t < 0.0:
@@ -571,7 +606,7 @@ func _draw() -> void:
 		var e := ease(u.t, -2.0)
 		var p: Vector2 = (u.a as Vector2).lerp(u.b, e) + Vector2(0, -sin(u.t * PI) * 70.0)
 		if u.cesit == "malzeme":
-			Cizim.malzeme(self, u.id, p, 48.0 if u.tur == "tepsi" else 34.0)
+			Cizim.malzeme(self, u.id, p, 42.0 if u.tur == "tepsi" else 34.0)
 		else:
 			Cizim.ciz(self, u.id, p, 44.0)
 
@@ -816,6 +851,7 @@ func _ust_bilgi() -> void:
 	draw_circle(para + Vector2(-6, -7), 5, Color(1, 1, 1, 0.7))
 	_yazi(Vector2(ar.position.x + 120, ar.get_center().y), str(Oyun.altin), 40, Color.WHITE, 6, Color(0.25, 0.15, 0.08))
 	_ses_ciz()
+	_hiz_ciz()
 	_kutu(Rect2(24, _ust + 12, 190, 52), Color(0.35, 0.22, 0.12, 0.8), 26)
 	_yazi(Vector2(119, _ust + 36), "Bölüm %d" % bolum_no, 34, Color.WHITE)
 
@@ -826,7 +862,9 @@ func _tepsi_ciz() -> void:
 	var kap: int = bolum.d.kapasite
 	var tehlike := tezgah.size() >= kap - 2
 	_kutu(_tepsi, Color("8f5729"), 30, 6, Color("5e3517"))
-	var g := (_tepsi.size.x - 40.0) / kap
+	var g := (_tepsi.size.x - 40.0) / (kap + (1 if _arti_yuva_var() else 0))
+	if _arti_yuva_var():
+		_arti_yuva_ciz(g)
 	for i in kap:
 		var c := _tepsi_yuva(i)
 		var r := Rect2(c - Vector2(g * 0.5 - 6, 52), Vector2(g - 12, 104))
@@ -840,8 +878,8 @@ func _tepsi_ciz() -> void:
 			if u.tur == "tepsi" and int(u.yuva) == i:
 				gizli = true
 		if not gizli:
-			_golge(_tepsi_yuva(i) + Vector2(0, 30), 34.0)
-			Cizim.malzeme(self, tezgah[i], _tepsi_yuva(i), 48.0)
+			_golge(_tepsi_yuva(i) + Vector2(0, 28), 30.0)
+			Cizim.malzeme(self, tezgah[i], _tepsi_yuva(i), 40.0)
 	if tehlike and bolum.d.sonuc == "":
 		var son := _tepsi_yuva(kap - 1)
 		_yazi(son + Vector2(0, -78), "!", 54, Color("e04a3a"), 8, Color.WHITE)
@@ -859,7 +897,7 @@ func _sutunlar() -> void:
 		draw_rect(Rect2(x - 8, r.position.y + 8, 5, r.size.y - 16), Color("f7d77a"))
 	for c in n:
 		var s: Array = bolum.d.sutunlar[c]
-		var ust := _sutun_ust_konum(c)
+		var ust := _sutun_ust_konum(c) + Vector2(sin(_sallanma[c] * 30.0) * 10.0 * _sallanma[c], 0)
 		if not s.is_empty():
 			draw_circle(ust, 56, Color(1, 1, 1, 0.35))
 			if c == _ipucu_sutun:
@@ -1166,3 +1204,143 @@ func _durak_paneli() -> void:
 		["Ana menü", "gri", func(): ana_menu_istendi.emit()],
 	])
 	_panel.show()
+
+
+# --- Ek yuva, hızlandırma, bağ ipleri ------------------------------------------
+
+func _arti_yuva_var() -> bool:
+	return bolum != null and bolum.ek_yuva_acilabilir(Oyun.ekonomi) and bolum.d.sonuc == ""
+
+
+func _arti_yuva_alani() -> Rect2:
+	var n: int = bolum.d.kapasite + 1
+	var g := (_tepsi.size.x - 40.0) / n
+	var c := _tepsi_yuva(bolum.d.kapasite)
+	return Rect2(c - Vector2(g * 0.5 - 6, 52), Vector2(g - 12, 104))
+
+
+func _arti_yuva_ciz(_g: float) -> void:
+	var r := _arti_yuva_alani()
+	var nabiz := 0.5 + 0.5 * sin(_zaman * 3.0)
+	_kutu(r, Color(0.98, 0.9, 0.72, 0.55 + 0.15 * nabiz), 18, 3, Color("6b4426"))
+	var m := r.get_center() + Vector2(0, -12)
+	draw_rect(Rect2(m - Vector2(20, 6), Vector2(40, 12)), Color("8f5729"))
+	draw_rect(Rect2(m - Vector2(6, 20), Vector2(12, 40)), Color("8f5729"))
+	var alt := Vector2(r.get_center().x, r.end.y - 20)
+	var bedel: int = bolum.yuva_bedeli(Oyun.ekonomi)
+	if bedel >= 0:
+		draw_circle(alt + Vector2(-20, 0), 10, Color("f6c33b"))
+		_yazi(alt + Vector2(8, 0), str(bedel), 24, Color.WHITE, 5, Color(0.25, 0.15, 0.08))
+
+
+func _ek_yuva_paneli() -> void:
+	_ek_temizle()
+	_panel_tur = "ekyuva"
+	_panel_baslik.text = "Ek yuva"
+	_panel_alt.text = "Tezgâha 1 yuva daha ekle
+(her bölümde bir kez)"
+	var liste := []
+	var bedel: int = bolum.yuva_bedeli(Oyun.ekonomi)
+	if bedel >= 0:
+		liste.append(["%d altınla aç" % bedel, "sari", _ek_yuva_altinla, Oyun.altin >= bedel])
+	liste.append(["Reklam izle, aç", "mavi", _ek_yuva_reklamla, bolum.reklam_hakki_var(Oyun.ekonomi) and Reklam.hazir_mi()])
+	liste.append(["Kapat", "gri", _devam_et])
+	_dugmeler(liste)
+	_panel.show()
+
+
+func _ek_yuva_altinla() -> void:
+	if bolum.yuva_ac_altinla(Oyun.durum, Oyun.ekonomi):
+		Oyun.altin_harcandi()
+		Ses.cal("altin")
+		_devam_et()
+
+
+func _ek_yuva_reklamla() -> void:
+	Reklam.odullu_goster(func(izlendi: bool):
+		if izlendi and bolum.yuva_ac_reklamla(Oyun.ekonomi):
+			Ses.cal("altin")
+			_devam_et())
+
+
+func _simdi() -> float:
+	return Time.get_unix_time_from_system()
+
+
+func _hiz_carpani() -> float:
+	return Ekonomi.hiz_carpani(Oyun.durum, Oyun.ekonomi.hizlandirma, _simdi())
+
+
+func _hiz_dugmesi() -> Rect2:
+	return Rect2(size.x - 228, _ust + 12, 132, 50)
+
+
+func _hiz_ciz() -> void:
+	var r := _hiz_dugmesi()
+	var aktif := _hiz_carpani() > 1.0
+	_kutu(Rect2(r.position + Vector2(0, 5), r.size), Color(0.2, 0.1, 0.03, 0.35), 25)
+	_kutu(r, Color("f2b33d") if aktif else Color(0.35, 0.22, 0.12, 0.85), 25, 4, Color("fff3dc") if aktif else Color("c89a5a"))
+	var yazi := "x%d" % int(_hiz_carpani())
+	_yazi(r.get_center() + Vector2(-22, 0), yazi, 36, Color.WHITE, 6, Color(0.25, 0.15, 0.08))
+	for k in 2:
+		var x := r.get_center().x + 18 + k * 16
+		var y := r.get_center().y
+		draw_polyline(PackedVector2Array([Vector2(x - 6, y - 12), Vector2(x + 6, y), Vector2(x - 6, y + 12)]), Color.WHITE, 6, true)
+	if aktif:
+		var kalan := int(Ekonomi.hiz_kalan(Oyun.durum, _simdi()))
+		var sr := Rect2(r.position.x - 104, r.position.y + 7, 96, 36)
+		_kutu(sr, Color(0.2, 0.1, 0.03, 0.8), 18)
+		_yazi(sr.get_center(), "%02d:%02d" % [kalan / 60, kalan % 60], 26, Color.WHITE)
+
+
+func _hiz_paneli() -> void:
+	_ek_temizle()
+	_panel_tur = "hiz"
+	var h: Dictionary = Oyun.ekonomi.hizlandirma
+	var aktif := _hiz_carpani() > 1.0
+	_panel_baslik.text = "Hızlandır"
+	_panel_alt.text = "x%d hız, %d dakika boyunca" % [int(h.carpan), int(h.sure_dk)]
+	if aktif:
+		var kalan := int(Ekonomi.hiz_kalan(Oyun.durum, _simdi()))
+		_panel_alt.text += "\nKalan: %d dk (alırsan süre uzar)" % ceili(kalan / 60.0)
+	var bedel := int(h.bedel)
+	_dugmeler([
+		["%d altınla al" % bedel, "yesil", _hiz_al, Oyun.altin >= bedel],
+		["Kapat", "gri", _devam_et],
+	])
+	_panel.show()
+
+
+func _hiz_al() -> void:
+	if Ekonomi.hiz_satin_al(Oyun.durum, Oyun.ekonomi.hizlandirma, _simdi()):
+		Oyun.altin_harcandi()
+		Ses.cal("altin")
+		_devam_et()
+
+
+## Bağlı malzemeleri birleştiren ipler (görünen sütun malzemeleri arasında).
+func _bag_ciz() -> void:
+	for g: Array in bolum.d.baglar:
+		var noktalar := []
+		for u: Array in g:
+			var st: Array = bolum.d.sutunlar[u[0]]
+			var derin: int = st.size() - 1 - int(u[1])
+			var p := _sutun_ust_konum(u[0]) + Vector2(sin(_sallanma[u[0]] * 30.0) * 10.0 * _sallanma[u[0]], derin * HUCRE)
+			noktalar.append(p)
+		for k in range(1, noktalar.size()):
+			var a: Vector2 = noktalar[k - 1]
+			var b: Vector2 = noktalar[k]
+			if a.y + 46 > _sutun_alani.end.y or b.y + 46 > _sutun_alani.end.y:
+				continue
+			var yon := (b - a).normalized()
+			var a2 := a + yon * 30.0
+			var b2 := b - yon * 30.0
+			draw_line(a2, b2, Color("4a2a12"), 16, true)
+			draw_line(a2, b2, Color("d9a066"), 10, true)
+			var parca := int(a2.distance_to(b2) / 14.0)
+			for j in parca:
+				var q := a2.lerp(b2, (j + 0.5) / parca)
+				draw_line(q - yon.orthogonal() * 4 - yon * 3, q + yon.orthogonal() * 4 + yon * 3, Color("a8692f"), 2, true)
+			for q: Vector2 in [a2, b2]:
+				draw_circle(q, 11, Color("4a2a12"))
+				draw_circle(q, 7, Color("f2c14a"))

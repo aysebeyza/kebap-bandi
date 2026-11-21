@@ -218,8 +218,9 @@ func test_tum_bolumler_cozulebilir() -> void:
 
 func ekonomi_ayar() -> Dictionary:
 	return {"baslangic_altin": 100, "odul_cubugu": [20, 30, 40, 30, 20], "cubuk_hizi": 1.0,
-		"yuva_bedeli": [50, 100], "reklam_yuva_hakki": 1, "reklam_carpani": 2,
-		"geri_al_bedeli": 30, "ipucu_bedeli": 15}
+		"yuva_bedeli": [50], "en_fazla_ek_yuva": 1, "reklam_yuva_hakki": 1, "reklam_carpani": 2,
+		"geri_al_bedeli": 30, "ipucu_bedeli": 15,
+		"hizlandirma": {"bedel": 150, "sure_dk": 30, "carpan": 2}}
 
 
 func dolu_bolum():
@@ -275,44 +276,128 @@ func test_altinla_yuva_acilir() -> void:
 	var oyuncu := {"altin": 120}
 	var b = dolu_bolum()
 	esit(b.d.sonuc, "doldu", "tezgâh doldu")
-	esit(b.yuva_bedeli(e), 50, "ilk yuva bedeli")
+	esit(b.yuva_bedeli(e), 50, "ek yuva bedeli")
 	bekle(b.yuva_ac_altinla(oyuncu, e), "altınla yuva açılır")
 	esit(oyuncu.altin, 70, "bedel düşülür")
 	esit(b.d.kapasite, 3, "tezgâh bir yuva büyür")
 	esit(b.d.sonuc, "", "oyun sürer")
 	b.dokun(0)
 	esit(b.d.sonuc, "doldu", "yeniden dolabilir")
-	esit(b.yuva_bedeli(e), 100, "ikinci yuva daha pahalı")
-	bekle(not b.yuva_ac_altinla(oyuncu, e), "altın yetmezse açılmaz")
-	esit(oyuncu.altin, 70, "yetmeyince altın düşmez")
-	esit(b.d.sonuc, "doldu", "oyun durmaya devam eder")
+	bekle(not b.ek_yuva_acilabilir(e), "bölümde yalnızca bir ek yuva var")
+	esit(b.yuva_bedeli(e), -1, "ikinci ek yuvanın bedeli yok")
+	bekle(not b.yuva_ac_altinla(oyuncu, e), "ikinci ek yuva altınla açılmaz")
+	bekle(not b.reklam_hakki_var(e), "ikinci ek yuva reklamla da açılmaz")
+	esit(oyuncu.altin, 70, "altın düşmez")
 
 
-func test_reklamla_yuva_bolum_basina_bir_kez() -> void:
+func test_reklamla_ek_yuva_tek_sefer() -> void:
 	var e := ekonomi_ayar()
 	var b = dolu_bolum()
-	bekle(b.reklam_hakki_var(e), "ilk dolmada reklam hakkı var")
+	bekle(b.reklam_hakki_var(e), "dolunca reklam hakkı var")
 	bekle(b.yuva_ac_reklamla(e), "reklamla yuva açılır")
 	esit(b.d.sonuc, "", "oyun sürer")
 	b.dokun(0)
-	bekle(not b.reklam_hakki_var(e), "aynı bölümde ikinci reklam hakkı yok")
-	bekle(not b.yuva_ac_reklamla(e), "reklamla ikinci yuva açılmaz")
+	bekle(not b.reklam_hakki_var(e), "reklam hakkı tek seferlik")
+	esit(b.yuva_bedeli(e), -1, "reklamla açıldıysa altınla da açılmaz")
 
 
-func test_altin_yuva_siniri() -> void:
+func test_ek_yuva_oyun_surerken_acilir() -> void:
 	var e := ekonomi_ayar()
-	e.yuva_bedeli = [10]
-	var oyuncu := {"altin": 1000}
-	var ayar := kucuk_ayar()
-	ayar.tezgah_kapasite = 1
-	var b = yeni([["hamur", "kiyma", "peynir", "yogurt"]], [{"yemek": "lahmacun", "adet": 1}], ayar)
-	b.dokun(0)
-	bekle(b.yuva_ac_altinla(oyuncu, e), "listedeki ilk yuva açılır")
-	b.dokun(0)
-	esit(b.d.sonuc, "doldu", "yeniden doldu")
-	esit(b.yuva_bedeli(e), -1, "liste bitince altınla açılamaz")
-	bekle(not b.yuva_ac_altinla(oyuncu, e), "sınırdan sonra açılmaz")
+	var oyuncu := {"altin": 100}
+	var b = yeni([["kiyma", "hamur"]], [{"yemek": "lahmacun", "adet": 1}])
+	esit(b.d.kapasite, 4, "başlangıç kapasitesi")
+	bekle(b.ek_yuva_acilabilir(e), "oyun sürerken de açılabilir")
+	bekle(b.yuva_ac_altinla(oyuncu, e), "önceden açılır")
+	esit(b.d.kapasite, 5, "tezgâh büyür")
+	esit(b.d.sonuc, "", "oyun durumu değişmez")
 
+
+# --- Hızlandırma -------------------------------------------------------------
+
+func test_hizlandirma_otuz_dakika() -> void:
+	var h: Dictionary = ekonomi_ayar().hizlandirma
+	var durum := {"altin": 400}
+	esit(Ekonomi.hiz_carpani(durum, h, 1000.0), 1.0, "başta x1")
+	bekle(Ekonomi.hiz_satin_al(durum, h, 1000.0), "altınla x2 alınır")
+	esit(durum.altin, 250, "bedel düşülür")
+	esit(Ekonomi.hiz_carpani(durum, h, 1000.0), 2.0, "hemen x2")
+	esit(Ekonomi.hiz_kalan(durum, 1000.0), 1800.0, "30 dakika")
+	esit(Ekonomi.hiz_carpani(durum, h, 1000.0 + 1799.0), 2.0, "süre içinde x2")
+	esit(Ekonomi.hiz_carpani(durum, h, 1000.0 + 1801.0), 1.0, "süre bitince x1")
+
+
+func test_hizlandirma_ust_uste_uzar() -> void:
+	var h: Dictionary = ekonomi_ayar().hizlandirma
+	var durum := {"altin": 400}
+	Ekonomi.hiz_satin_al(durum, h, 0.0)
+	Ekonomi.hiz_satin_al(durum, h, 600.0)
+	esit(Ekonomi.hiz_kalan(durum, 600.0), 3000.0, "kalan sürenin üstüne 30 dk eklenir")
+	durum.altin = 10
+	bekle(not Ekonomi.hiz_satin_al(durum, h, 700.0), "altın yetmezse alınmaz")
+
+
+# --- Bağlı malzemeler ---------------------------------------------------------
+
+func bagli_bolum(ayar: Dictionary = {}):
+	# sütun 0: [peynir, hamur], sütun 1: [kiyma, yogurt]; hamur ile kiyma bağlı.
+	return Bolum.new({"sutunlar": [["peynir", "hamur"], ["kiyma", "yogurt"]],
+		"siparisler": [{"yemek": "lahmacun", "adet": 1}, {"yemek": "pide", "adet": 1}],
+		"baglar": [[[0, 1], [1, 0]]]}, kucuk_ayar() if ayar.is_empty() else ayar, kucuk_tarif())
+
+
+func test_bagli_malzeme_tek_basina_gitmez() -> void:
+	var b = bagli_bolum()
+	esit(b.dokunma_engeli(0), "bag", "bağlı malzemenin eşi en üstte değil")
+	bekle(not b.dokun(0), "bağlı malzemeye tek başına dokunulamaz")
+	esit(b.d.tezgah, [], "tezgâh değişmez")
+
+
+func test_bagli_malzemeler_birlikte_gider() -> void:
+	var b = bagli_bolum()
+	bekle(b.dokun(1), "üstteki serbest malzeme gider")
+	esit(b.d.tezgah, ["yogurt"], "yoğurt tezgâhta")
+	esit(b.dokunma_engeli(0), "", "eşler en üstte: dokunulabilir")
+	bekle(b.dokun(0), "bağlı malzemeye dokunulur")
+	esit(b.son_dokunus.size(), 2, "ikisi birden tezgâha gider")
+	esit(b.d.sutunlar[0], ["peynir"], "ilk sütundan çıktı")
+	esit(b.d.sutunlar[1], [], "ikinci sütundan çıktı")
+	esit(b.d.pisenler[0].yemek, "lahmacun", "birlikte gelen malzemeler tarifi tamamlar")
+	esit(b.d.baglar, [], "bağ çözülür")
+
+
+func test_bagli_malzemelere_yer_yoksa_gitmez() -> void:
+	var ayar := kucuk_ayar()
+	ayar.tezgah_kapasite = 2
+	var b = Bolum.new({"sutunlar": [["peynir", "hamur"], ["kiyma", "yogurt"], ["su"]],
+		"siparisler": [{"yemek": "pide", "adet": 1}],
+		"baglar": [[[0, 1], [1, 0]]]}, ayar, kucuk_tarif())
+	b.dokun(1)
+	esit(b.dokunma_engeli(0), "yer", "iki malzemeye yer yok")
+	bekle(not b.dokun(0), "yer yoksa gitmez")
+
+
+func test_bagli_hamle_geri_alinir() -> void:
+	var b = Bolum.new({"sutunlar": [["peynir", "su"], ["kiyma", "yogurt"]],
+		"siparisler": [{"yemek": "lahmacun", "adet": 1}],
+		"baglar": [[[0, 1], [1, 1]]]}, kucuk_ayar(), kucuk_tarif())
+	bekle(b.dokun(0), "iki bağlı en üstte, birlikte gider")
+	esit(b.d.tezgah, ["su", "yogurt"], "ikisi de tezgâhta")
+	bekle(b.geri_al(), "bağlı hamle geri alınır")
+	esit(b.d.sutunlar[0], ["peynir", "su"], "ilk sütuna döndü")
+	esit(b.d.sutunlar[1], ["kiyma", "yogurt"], "ikinci sütuna döndü")
+	esit(b.dokunma_engeli(1), "", "bağ geri geldi, yine birlikte dokunulur")
+	esit(b.bag_grubu(1).size(), 2, "bağ grubu geri geldi")
+
+
+func test_uretici_bag_ekler() -> void:
+	var p: Dictionary = (veri.bolumler[veri.bolumler.size() - 1] as Dictionary).duplicate()
+	bekle(int(p.get("bag_sayisi", 0)) > 0, "son bölümlerde bağ var")
+	var sev := Uretici.taslak(p, int(p.tohum), veri)
+	esit((sev.baglar as Array).size(), int(p.bag_sayisi), "istenen sayıda bağ")
+	for g: Array in sev.baglar:
+		bekle(g.size() >= 2 and g.size() <= 3, "bağ 2 ya da 3 malzemeli")
+		for k in range(1, g.size()):
+			esit(int(g[k][0]), int(g[k - 1][0]) + 1, "bağlılar yan yana sütunlarda")
 
 
 func test_geri_al_son_malzemeyi_sutuna_dondurur() -> void:

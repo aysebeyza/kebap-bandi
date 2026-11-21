@@ -39,3 +39,25 @@ static func harca(durum: Dictionary, miktar: int) -> bool:
 		return false
 	durum.altin = int(durum.altin) - miktar
 	return true
+
+
+# --- Hızlandırma (x2, süreli) --------------------------------------------------
+## Ayar: ekonomi.hizlandirma = {"bedel", "sure_dk", "carpan"}. Durumda "hiz_bitis" (Unix sn) tutulur.
+## simdi: Unix zamanı (sn); dışarıdan verilir ki testler saate bağlı olmasın.
+
+## Oyunun hız çarpanı: satın alınan süre dolmadıysa "carpan", dolduysa 1.
+static func hiz_carpani(durum: Dictionary, ayar: Dictionary, simdi: float) -> float:
+	return float(ayar.carpan) if hiz_kalan(durum, simdi) > 0.0 else 1.0
+
+
+## Hızlandırmanın kalan süresi (sn); yoksa 0.
+static func hiz_kalan(durum: Dictionary, simdi: float) -> float:
+	return maxf(0.0, float(durum.get("hiz_bitis", 0.0)) - simdi)
+
+
+## Altın düşer ve süreyi uzatır (süre doluysa şimdiden, değilse kalan sürenin üstüne ekler).
+static func hiz_satin_al(durum: Dictionary, ayar: Dictionary, simdi: float) -> bool:
+	if not harca(durum, int(ayar.bedel)):
+		return false
+	durum["hiz_bitis"] = maxf(simdi, float(durum.get("hiz_bitis", 0.0))) + float(ayar.sure_dk) * 60.0
+	return true

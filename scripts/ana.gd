@@ -3,13 +3,14 @@ extends Node
 ## Geliştirici argümanları verilirse (bölüm, oto, panel) doğrudan oyun açılır.
 ## Geliştirici argümanları (`--` sonrasında):
 ##   --menu                  başlangıç ekranını zorla (ekran görüntüsü için)
+##   --x2                    10 dakikalık hızlandırmayla başlar (deneme)
 ##   --kayitsiz              oyuncunun kaydını okumaz/yazmaz
 ##   --bolum=<n>             bu bölümden başlar
 ##   --oto                   otomatik oyuncu dokunur
 ##   --hiz=<x>               zaman çarpanı
 ##   --duman=<n>             (--oto ile) n bölüm bitince "DUMAN TAMAM" yazıp çıkar
 ##   --ekran=<dosya.png> --bekle=<saniye>   ekran görüntüsü alıp çıkar
-##   --panel=<doldu|kazanc|kayip>  pencereyi doğrudan açar (doldu: tezgâh gerçekten doldurulur)
+##   --panel=<doldu|kazanc|kayip|hiz|ekyuva>  pencereyi doğrudan açar (doldu: tezgâh gerçekten doldurulur)
 
 const OyunEkrani = preload("res://scripts/ui/oyun_ekrani.gd")
 const OtoOyuncu = preload("res://scripts/core/oto_oyuncu.gd")
@@ -23,6 +24,8 @@ var _ekran: Control
 func _ready() -> void:
 	var arg := _argumanlar()
 	_arg = arg
+	if arg.has("x2"):
+		Oyun.durum["hiz_bitis"] = Time.get_unix_time_from_system() + 600.0
 	var dogrudan := (arg.has("bolum") or arg.has("oto") or arg.has("panel")) and not arg.has("menu")
 	if dogrudan:
 		_oyunu_ac(int(arg.get("bolum", str(Oyun.bolum))))
@@ -112,6 +115,10 @@ func _panel_ac(ekran, tur: String) -> void:
 		"kayip":
 			ekran._kayip_paneli()
 			ekran._panel.show()
+		"hiz":
+			ekran._hiz_paneli()
+		"ekyuva":
+			ekran._ek_yuva_paneli()
 
 
 func _argumanlar() -> Dictionary:

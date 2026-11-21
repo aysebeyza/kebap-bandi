@@ -68,7 +68,30 @@ static func taslak(param: Dictionary, tohum: int, veri: Dictionary) -> Dictionar
 				adaylar.append(i)
 		sutunlar[adaylar[rng.randi() % adaylar.size()]].append(parcalar[k].m)
 
-	var sev := {"sutunlar": sutunlar, "siparisler": siparisler}
+	# Bağlı malzemeler: yan yana sütunlarda, aynı sıradaki 2 ya da 3 malzeme.
+	var baglar := []
+	var kullanilan := {}
+	var deneme := 0
+	while baglar.size() < int(param.get("bag_sayisi", 0)) and deneme < 300:
+		deneme += 1
+		var n := 3 if rng.randf() < float(param.get("uclu_oran", 0.0)) else 2
+		var c0 := rng.randi_range(0, sutun_sayisi - n)
+		var derin := rng.randi_range(1, 7)
+		var grup := []
+		for k in n:
+			var st: Array = sutunlar[c0 + k]
+			var alt := st.size() - 1 - derin
+			if alt < 0 or kullanilan.has(Vector2i(c0 + k, alt)):
+				grup = []
+				break
+			grup.append([c0 + k, alt])
+		if grup.is_empty():
+			continue
+		for u: Array in grup:
+			kullanilan[Vector2i(u[0], u[1])] = true
+		baglar.append(grup)
+
+	var sev := {"sutunlar": sutunlar, "siparisler": siparisler, "baglar": baglar}
 	if param.has("tezgah"):
 		sev["tezgah"] = int(param.tezgah)
 	return sev
