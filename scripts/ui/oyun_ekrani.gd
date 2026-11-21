@@ -752,19 +752,49 @@ func _balon(i: int) -> void:
 	var ustte := m.y < _tezgah.get_center().y
 	var c := m + Vector2(-115.0 if sol else 115.0, -95.0 if ustte else -5.0)
 	c.x = clampf(c.x, 82.0, size.x - 82.0)
-	var kuyruk_uc := c.lerp(m, 0.55)
-	var dik := (m - c).normalized().orthogonal() * 18.0
-	Cizim.sekil(self, PackedVector2Array([c + dik, kuyruk_uc, c - dik]), Color.WHITE, 3.0)
-	Cizim.daire(self, c, 60, Color.WHITE, 4.0)
-	Cizim.ciz(self, kol.yemek, c + Vector2(-4, -6), 46.0)
-	_yazi(c + Vector2(30, 38), str(kol.kalan), 48, KAHVE, 10, Color.WHITE)
-	# tarif ipucu
+	const KART := 124.0
+	const CERCEVE := Color("5e3517")
+	const ZEMIN := Color("fff6e3")
+	var kart := Rect2(c - Vector2(KART, KART) * 0.5, Vector2(KART, KART))
+	# müşteriyi gösteren uç (kartın altında, çerçeveli)
+	var yon := (m - c).normalized()
+	var uc := c + yon * (KART * 0.5 + 34)
+	var dik := yon.orthogonal() * 20.0
+	var dip := c + yon * (KART * 0.38)
+	draw_colored_polygon(PackedVector2Array([dip + dik * 1.35, uc + yon * 7, dip - dik * 1.35]), CERCEVE)
+	draw_colored_polygon(PackedVector2Array([dip + dik, uc, dip - dik]), ZEMIN)
+	# gölge, çerçeve, zemin, altın iç şerit, üst parıltı
+	_kutu(Rect2(kart.position + Vector2(0, 7), kart.size), Color(0.2, 0.1, 0.03, 0.28), 36)
+	_kutu(kart, ZEMIN, 36, 6, CERCEVE)
+	var ic := kart.grow(-11)
+	var serit := StyleBoxFlat.new()
+	serit.draw_center = false
+	serit.set_corner_radius_all(26)
+	serit.set_border_width_all(3)
+	serit.border_color = Color("e9b949")
+	serit.anti_aliasing = true
+	draw_style_box(serit, ic)
+	_kutu(Rect2(ic.position + Vector2(10, 6), Vector2(ic.size.x - 20, 14)), Color(1, 1, 1, 0.55), 7)
+	Cizim.ciz(self, kol.yemek, c + Vector2(0, -2), 44.0)
+	# adet rozeti (yemeği alınca zıplar)
+	var zipla := 1.0 + 0.35 * sin(_sevinc[i] * PI)
+	var rozet := kart.end - Vector2(14, 14)
+	var rr := 27.0 * zipla
+	draw_circle(rozet + Vector2(0, 4), rr + 5, Color(0.2, 0.1, 0.03, 0.3))
+	draw_circle(rozet, rr + 5, CERCEVE)
+	draw_circle(rozet, rr, Color("e8553c"))
+	draw_circle(rozet + Vector2(0, rr * 0.25), rr * 0.8, Color("d43f2a"))
+	draw_circle(rozet + Vector2(-rr * 0.32, -rr * 0.38), rr * 0.28, Color(1, 1, 1, 0.55))
+	var boy := int(40 * zipla)
+	_yazi(rozet + Vector2(0, 1), str(kol.kalan), boy, Color.WHITE, 7, Color("5e1a0e"))
+	# tarif şeridi
 	var tarif: Array = _tarifler[kol.yemek]
-	var genis := tarif.size() * 44.0 + 12.0
-	var tr := Rect2(c.x - genis * 0.5, c.y + 64, genis, 46)
-	_kutu(tr, Color(1, 1, 1, 0.92), 23, 3, Color("c89a5a"))
+	var genis := tarif.size() * 46.0 + 16.0
+	var tr := Rect2(c.x - genis * 0.5, kart.end.y + 14, genis, 52)
+	_kutu(Rect2(tr.position + Vector2(0, 4), tr.size), Color(0.2, 0.1, 0.03, 0.22), 26)
+	_kutu(tr, ZEMIN, 26, 4, CERCEVE)
 	for j in tarif.size():
-		Cizim.malzeme(self, tarif[j], Vector2(tr.position.x + 28 + j * 44, tr.get_center().y), 21.0)
+		Cizim.malzeme(self, tarif[j], Vector2(tr.position.x + 31 + j * 46, tr.get_center().y), 22.0)
 
 
 func _ust_bilgi() -> void:
